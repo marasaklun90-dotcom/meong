@@ -3,6 +3,6 @@
     "description": "CloudStream 3 extensions untuk situs streaming Indonesia",
     "manifestVersion": 1,
     "pluginLists": [
-        "https://github.com/ExtremeBoyGG/nonton-indo/raw/main/plugins.json"
+        "https://github.com/marasaklun90-dotcom/meong/raw/main/plugins.json"
     ]
 }

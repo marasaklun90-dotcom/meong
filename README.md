@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="https://github.com/ExtremeBoyGG/nonton-indo">
+  <a href="https://github.com/marasaklun90-dotcom/meong">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="https://cdn-icons-png.flaticon.com/512/2920/2920297.png">
       <source media="(prefers-color-scheme: light)" srcset="https://cdn-icons-png.flaticon.com/512/3136/3136684.png">
@@ -16,9 +16,9 @@
   </p>
 
   <p align="center">
-    <a href="https://github.com/ExtremeBoyGG/nonton-indo/issues">Report Bug</a>
+    <a href="https://github.com/marasaklun90-dotcom/meong/issues">Report Bug</a>
     ·
-    <a href="https://github.com/ExtremeBoyGG/nonton-indo/issues">Request Situs</a>
+    <a href="https://github.com/marasaklun90-dotcom/meong/issues">Request Situs</a>
   </p>
 </p>
 
@@ -92,7 +92,7 @@
 3. Tambahkan URL repository berikut:
 
 ```
-https://raw.githubusercontent.com/ExtremeBoyGG/nonton-indo/builds/repo.json
+https://raw.githubusercontent.com/marasaklun90-dotcom/meong/builds/repo.json
 ```
 
 4. Kembali ke halaman utama, plugin akan muncul di tab **Extensions**
@@ -111,7 +111,7 @@ https://raw.githubusercontent.com/ExtremeBoyGG/nonton-indo/builds/repo.json
 
 ```bash
 # Clone repository
-git clone https://github.com/ExtremeBoyGG/nonton-indo.git
+git clone https://github.com/marasaklun90-dotcom/meong.git
 cd nonton-indo
 
 # Build semua plugin
@@ -170,10 +170,10 @@ MIT License - lihat [LICENSE](LICENSE) untuk detail.
 
 ## Star History
 
-<a href="https://star-history.com/#ExtremeBoyGG/nonton-indo&Date">
+<a href="https://star-history.com/#marasaklun90-dotcom/meong&Date">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=ExtremeBoyGG/nonton-indo&type=Date&theme=dark" />
-    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=ExtremeBoyGG/nonton-indo&type=Date" />
-    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=ExtremeBoyGG/nonton-indo&type=Date" />
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=marasaklun90-dotcom/meong&type=Date&theme=dark" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=marasaklun90-dotcom/meong&type=Date" />
+    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=marasaklun90-dotcom/meong&type=Date" />
   </picture>
 </a>
