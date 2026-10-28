@@ -7,5 +7,6 @@ include(
     "Sokuja",
     "LK21",
     "BlurayUFR",
-    "LayarAsia"
+    "LayarAsia",
+    "AnimeXin"
 )
