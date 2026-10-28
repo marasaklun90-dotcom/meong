@@ -340,6 +340,36 @@ class Donghub : MainAPI() {
         }
     }
 
+
+    private suspend fun extractOdysee(
+        url: String,
+        callback: (ExtractorLink) -> Unit
+    ) {
+        try {
+            val headers = mapOf(
+                "User-Agent" to defaultHeaders["User-Agent"].orEmpty(),
+                "Referer" to "https://odysee.com/"
+            )
+
+            val html = app.get(url, headers = headers).text
+            val streamUrl = Regex(
+                "\"contentUrl\"\\s*:\\s*\"([^\"]+)\""
+            ).find(html)?.groupValues?.getOrNull(1)
+                ?.replace("\\/", "/")
+                ?: return
+
+            if (!streamUrl.startsWith("https://player.odycdn.com/")) return
+
+            callback(newExtractorLink("Odysee", "Odysee", streamUrl) {
+                this.referer = "https://odysee.com/"
+                this.type = ExtractorLinkType.VIDEO
+                this.headers = headers
+            })
+        } catch (_: Exception) {
+            // Kegagalan Odysee tidak menghentikan mirror lainnya.
+        }
+    }
+
     override suspend fun loadLinks(
         data: String,
         isCasting: Boolean,
@@ -378,7 +408,9 @@ class Donghub : MainAPI() {
 
             if (!seenUrls.add(url)) return
 
-            if (url.contains("morencius.com") || url.contains("minochinos.com")) {
+            if (url.contains("odysee.com", ignoreCase = true)) {
+                extractOdysee(url, callback)
+            } else if (url.contains("morencius.com") || url.contains("minochinos.com")) {
                 extractVidhide(url, callback)
             } else {
                 loadExtractor(url, data, subtitleCallback, callback)
