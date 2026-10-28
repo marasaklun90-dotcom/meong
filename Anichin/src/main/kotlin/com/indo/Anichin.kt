@@ -17,6 +17,10 @@ class Anichin : MainAPI() {
     override var lang = "id"
     override val hasDownloadSupport = true
     override val supportedTypes = setOf(TvType.Anime, TvType.AnimeMovie, TvType.TvSeries)
+    private val defaultHeaders = mapOf(
+        "Referer" to "https://anichin.moe/",
+        "User-Agent" to "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36"
+    )
 
     override val mainPage = mainPageOf(
         "$mainUrl/" to "Popular Today",
@@ -46,6 +50,7 @@ class Anichin : MainAPI() {
 
             newAnimeSearchResponse(title, href, tvType) {
                 this.posterUrl = poster
+                this.posterHeaders = defaultHeaders
                 addSub(epNum)
             }
         }.distinctBy { it.url }
@@ -53,24 +58,24 @@ class Anichin : MainAPI() {
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         if (request.name == "Popular Today") {
-            val doc = app.get(mainUrl).document
+            val doc = app.get(mainUrl, headers = defaultHeaders).document
             val items = parseItems(doc, ".releases.hothome + .listupd article.bs, .popularslider article.bs")
             return newHomePageResponse(request.name, items)
         }
 
-        val doc = app.get(if (page > 1) "$mainUrl/page/$page/" else mainUrl).document
+        val doc = app.get(if (page > 1) "$mainUrl/page/$page/" else mainUrl, headers = defaultHeaders).document
         val items = parseItems(doc, ".releases.latesthome + .listupd article.bs, .listupd.normal article.bs")
         return newHomePageResponse(request.name, items)
     }
 
     override suspend fun search(query: String): List<SearchResponse> {
-        val doc = app.get("$mainUrl/?s=$query").document
+        val doc = app.get("$mainUrl/?s=$query", headers = defaultHeaders).document
         return parseItems(doc, "div.listupd article.bs")
     }
 
     override suspend fun load(url: String): LoadResponse {
         val fullUrl = fixUrl(url)
-        val doc = app.get(fullUrl).document
+        val doc = app.get(fullUrl, headers = defaultHeaders).document
 
         val breadcrumbSeries = doc.selectFirst(".ts-breadcrumb [itemprop=itemListElement]:nth-child(2) a [itemprop=name]")?.text()?.trim()
             ?: doc.selectFirst(".ts-breadcrumb [itemprop=itemListElement]:nth-child(2) a")?.text()?.trim()
@@ -162,6 +167,7 @@ class Anichin : MainAPI() {
             return newAnimeLoadResponse(title, fullUrl, tvType) {
                 engName = title
                 posterUrl = poster
+                this.posterHeaders = defaultHeaders
                 addEpisodes(DubStatus.Subbed, sortedEpisodes)
                 showStatus = status
                 this.year = year
@@ -172,6 +178,7 @@ class Anichin : MainAPI() {
 
         return newMovieLoadResponse(title, fullUrl, TvType.AnimeMovie, fullUrl) {
             this.posterUrl = poster
+            this.posterHeaders = defaultHeaders
             this.plot = synopsis
             this.tags = tags
         }
