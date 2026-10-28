@@ -239,6 +239,54 @@ class Donghub : MainAPI() {
         } catch (_: Exception) { }
     }
 
+    private suspend fun extractVidhide(url: String, callback: (ExtractorLink) -> Unit) {
+        try {
+            val html = app.get(url, referer = "$mainUrl/").text
+            val packed = Regex(
+                """eval\s*\(\s*function\s*\(\s*p\s*,\s*a\s*,\s*c\s*,\s*k\s*,\s*e\s*,\s*d\s*\)\s*\{[\s\S]*?\}\s*\(\s*'((?:[^'\\]|\\.)*+)'\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*'([^']+)'\s*\.split\s*\(\s*'\|\s*'\s*\)\s*\)""",
+                RegexOption.IGNORE_CASE
+            ).find(html) ?: return
+
+            val encoded = packed.groupValues[1]
+            val radix = packed.groupValues[2].toIntOrNull() ?: return
+            val count = packed.groupValues[3].toIntOrNull() ?: return
+            val dictionary = packed.groupValues[4].split("|")
+            var result = encoded
+
+            for (i in (count - 1) downTo 0) {
+                val replacement = dictionary.getOrNull(i)
+                if (!replacement.isNullOrEmpty()) {
+                    result = result.replace(
+                        Regex("\\b" + Regex.escape(i.toString(radix)) + "\\b"),
+                        replacement
+                    )
+                }
+            }
+
+            val m3u8Url = Regex("""['"]file['"]\s*:\s*['"]((?:[^'"]|\\.)*+)['"]""")
+                .find(result)?.groupValues?.getOrNull(1)
+                ?: Regex("""https?://[^\s"'<>]+\.m3u8[^\s"'<>]*""")
+                    .find(result)?.value
+                ?: return
+
+            val links = M3u8Helper.generateM3u8(
+                source = "VidHide",
+                streamUrl = m3u8Url,
+                referer = url,
+                headers = mapOf("Referer" to url)
+            )
+
+            if (links.isNotEmpty()) {
+                links.forEach { callback(it) }
+            } else {
+                callback(newExtractorLink("VidHide", "VidHide", m3u8Url) {
+                    this.referer = url
+                    this.type = ExtractorLinkType.M3U8
+                })
+            }
+        } catch (_: Exception) { }
+    }
+
     override suspend fun loadLinks(
         data: String,
         isCasting: Boolean,
@@ -265,7 +313,11 @@ class Donghub : MainAPI() {
                 return
             }
 
-            if (seenUrls.add(url)) {
+            if (!seenUrls.add(url)) return
+
+            if (url.contains("morencius.com") || url.contains("minochinos.com")) {
+                extractVidhide(url, callback)
+            } else {
                 loadExtractor(url, data, subtitleCallback, callback)
             }
         }
