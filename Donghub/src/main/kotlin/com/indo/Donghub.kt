@@ -247,34 +247,62 @@ class Donghub : MainAPI() {
     ): Boolean {
         val doc = app.get(data, headers = defaultHeaders).document
         val seenDm = mutableSetOf<String>()
+        val seenUrls = mutableSetOf<String>()
 
-        suspend fun handleUrl(url: String) {
-            val dmId = Regex("""(?:dailymotion\.com/(?:video/|player/[^?]+\.html\?video=)|dai\.ly/|geo\.dailymotion\.com/player/[^?]+\.html\?video=)([a-zA-Z0-9]+)""").find(url)?.groupValues?.getOrNull(1)
+        suspend fun handleUrl(rawUrl: String) {
+            val url = when {
+                rawUrl.startsWith("//") -> "https:$rawUrl"
+                rawUrl.startsWith("http://") || rawUrl.startsWith("https://") -> rawUrl
+                else -> return
+            }
+
+            val dmId = Regex(
+                """(?:dailymotion\.com/(?:video/|player/[^?]+\.html\?video=)|dai\.ly/|geo\.dailymotion\.com/player/[^?]+\.html\?video=)([a-zA-Z0-9]+)"""
+            ).find(url)?.groupValues?.getOrNull(1)
+
             if (dmId != null) {
-                if (seenDm.add(dmId)) {
-                    extractDailymotion(dmId, callback)
-                }
+                if (seenDm.add(dmId)) extractDailymotion(dmId, callback)
                 return
             }
 
-            loadExtractor(url, data, subtitleCallback, callback)
+            if (seenUrls.add(url)) {
+                loadExtractor(url, data, subtitleCallback, callback)
+            }
         }
 
-        doc.select("#pembed iframe[src]").forEach { iframe ->
-            val src = iframe.attr("src").ifBlank { return@forEach }
-            handleUrl(src)
-        }
+        doc.select("#pembed iframe[src], #embed_holder iframe[src], .player-embed iframe[src]")
+            .forEach { iframe ->
+                val src = iframe.attr("src").trim()
+                if (src.isNotBlank()) handleUrl(src)
+            }
 
         doc.select("select.mirror option").forEach { option ->
-            val encoded = option.attr("value").ifBlank { return@forEach }
-            if (encoded.length < 10) return@forEach
-            try {
-                val decoded = String(android.util.Base64.decode(encoded, android.util.Base64.DEFAULT))
-                val iframeSrc = Regex("""iframe\s+[^>]*src\s*=\s*['"]([^'"]+)['"]""", RegexOption.IGNORE_CASE).find(decoded)?.groupValues?.getOrNull(1)
-                if (iframeSrc != null) {
-                    handleUrl(iframeSrc)
+            val encoded = option.attr("value").trim()
+            if (encoded.isBlank()) return@forEach
+
+            val decoded = try {
+                if (encoded.startsWith("http://") || encoded.startsWith("https://") ||
+                    encoded.startsWith("//")) {
+                    encoded
+                } else {
+                    String(
+                        android.util.Base64.decode(encoded, android.util.Base64.DEFAULT),
+                        Charsets.UTF_8
+                    ).trim()
                 }
-            } catch (_: Exception) { }
+            } catch (_: Exception) {
+                return@forEach
+            }
+
+            val iframeSrc = Regex(
+                """<iframe\b[^>]*\bsrc\s*=\s*["']([^"']+)["']""",
+                RegexOption.IGNORE_CASE
+            ).find(decoded)?.groupValues?.getOrNull(1)
+
+            val directUrl = iframeSrc
+                ?: Regex("""https?://[^\s"'<>]+""").find(decoded)?.value
+
+            if (!directUrl.isNullOrBlank()) handleUrl(directUrl)
         }
 
         return true
