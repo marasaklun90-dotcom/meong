@@ -234,52 +234,77 @@ class AnimeXin : MainAPI() {
     ): Boolean {
         val episodeUrl = fixUrl(data)
         val doc = app.get(episodeUrl, headers = headers).document
-        val links = linkedSetOf<String>()
 
+        // Simpan URL beserta nama server dan bahasa dari website.
+        val links = linkedMapOf<String, String>()
+
+        doc.select("select.mirror option").forEach { option ->
+            val label = option.text().trim()
+            val value = option.attr("value").trim()
+
+            if (value.isBlank() ||
+                label.isBlank() ||
+                label.contains("comment", ignoreCase = true) ||
+                value == "post" ||
+                value == "all_comment"
+            ) return@forEach
+
+            try {
+                val iframeUrl = if (
+                    value.startsWith("http://") ||
+                    value.startsWith("https://") ||
+                    value.startsWith("//")
+                ) {
+                    value
+                } else {
+                    val decoded = String(
+                        Base64.decode(value, Base64.DEFAULT),
+                        Charsets.UTF_8
+                    )
+
+                    Regex(
+                        """<iframe\b[^>]*\bsrc=["']([^"']+)["']""",
+                        RegexOption.IGNORE_CASE
+                    ).find(decoded)?.groupValues?.getOrNull(1)
+                        ?: Regex("""https?://[^\s"'<>]+""")
+                            .find(decoded)?.value
+                }
+
+                iframeUrl?.trim()
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let { links[fixUrl(it)] = label }
+            } catch (_: Exception) {
+                // Abaikan opsi yang gagal didekode.
+            }
+        }
+
+        // Tambahkan iframe aktif jika tidak ditemukan di daftar server.
         doc.select(
             "#pembed iframe[src], .player-embed iframe[src], .mobius iframe[src]"
         ).forEach { iframe ->
             iframe.attr("src").trim()
                 .takeIf { it.isNotBlank() }
-                ?.let { links.add(fixUrl(it)) }
+                ?.let { links.putIfAbsent(fixUrl(it), "Default Player") }
         }
 
-        doc.select("select.mirror option").forEach { option ->
-            val value = option.attr("value").trim()
-            if (value.isBlank()) return@forEach
-
-            if (value.startsWith("http://") || value.startsWith("https://") ||
-                value.startsWith("//")
-            ) {
-                links.add(fixUrl(value))
-                return@forEach
-            }
-
+        links.forEach { (url, serverLabel) ->
             try {
-                val decoded = String(
-                    Base64.decode(value, Base64.DEFAULT),
-                    Charsets.UTF_8
-                )
-
-                val iframeUrl = Regex(
-                    """<iframe\b[^>]*\bsrc=["']([^"']+)["']""",
-                    RegexOption.IGNORE_CASE
-                ).find(decoded)?.groupValues?.getOrNull(1)
-                    ?: Regex("""https?://[^\s"'<>]+""")
-                        .find(decoded)?.value
-
-                iframeUrl?.trim()?.takeIf { it.isNotBlank() }
-                    ?.let { links.add(fixUrl(it)) }
+                loadExtractor(url, episodeUrl, subtitleCallback) { extracted ->
+                    val labeled = ExtractorLink(
+                        extracted.source,
+                        "$serverLabel - ${extracted.name}",
+                        extracted.url,
+                        extracted.referer,
+                        extracted.quality,
+                        extracted.headers,
+                        extracted.extractorData,
+                        extracted.type,
+                        extracted.audioTracks
+                    )
+                    callback(labeled)
+                }
             } catch (_: Exception) {
-                // Lewati mirror yang gagal didekode.
-            }
-        }
-
-        links.forEach { link ->
-            try {
-                loadExtractor(link, episodeUrl, subtitleCallback, callback)
-            } catch (_: Exception) {
-                // Mirror lain tetap dicoba jika satu extractor gagal.
+                // Kegagalan satu server tidak menghentikan server lainnya.
             }
         }
 
