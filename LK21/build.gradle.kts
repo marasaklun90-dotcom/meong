@@ -5,5 +5,5 @@ cloudstream {
     authors = listOf("ExtremeBoy")
     status = 1
     tvTypes = listOf("TvSeries", "Movie")
-    iconUrl = "https://www.google.com/s2/favicons?domain=https://tv9.nontondrama.my&sz=%size%"
+    iconUrl = "https://www.google.com/s2/favicons?domain=https://tv.nontondrama.vip&sz=%size%"
 }

@@ -11,7 +11,7 @@ import org.json.JSONObject
 import org.jsoup.nodes.Element
 
 class LK21 : MainAPI() {
-    override var mainUrl = "https://tv9.nontondrama.my"
+    override var mainUrl = "https://tv.nontondrama.vip"
     override var name = "LK21"
     override val hasMainPage = true
     override var lang = "id"
@@ -19,7 +19,7 @@ class LK21 : MainAPI() {
     override val supportedTypes = setOf(TvType.TvSeries, TvType.Movie)
 
     private val movieUrl = "https://tv12.lk21official.cc"
-    private val seriesUrl = "https://tv9.nontondrama.my"
+    private val seriesUrl = "https://tv.nontondrama.vip"
 
     private val defaultHeaders = mapOf(
         "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
