@@ -239,6 +239,42 @@ class Donghub : MainAPI() {
         } catch (_: Exception) { }
     }
 
+    private suspend fun extractDTube(
+        videoId: String,
+        callback: (ExtractorLink) -> Unit
+    ) {
+        try {
+            // DTube accepts UUID video IDs and exposes an HLS master manifest.
+            val streamUrl = "https://nas1.d.tube/videos/$videoId/master.m3u8"
+            val headers = mapOf("Referer" to "https://play.d.tube/")
+
+            val response = app.get(
+                streamUrl,
+                headers = headers,
+            )
+
+            if (!response.text.trimStart().startsWith("#EXTM3U")) return
+
+            val links = M3u8Helper.generateM3u8(
+                source = "DTube",
+                streamUrl = streamUrl,
+                referer = "https://play.d.tube/",
+                headers = headers
+            )
+
+            if (links.isNotEmpty()) {
+                links.forEach { callback(it) }
+            } else {
+                callback(newExtractorLink("DTube", "DTube", streamUrl) {
+                    this.referer = "https://play.d.tube/"
+                    this.type = ExtractorLinkType.M3U8
+                    this.headers = headers
+                })
+            }
+        } catch (_: Exception) {
+        }
+    }
+
     private suspend fun extractVidhide(
         url: String,
         callback: (ExtractorLink) -> Unit
@@ -327,6 +363,16 @@ class Donghub : MainAPI() {
 
             if (dmId != null) {
                 if (seenDm.add(dmId)) extractDailymotion(dmId, callback)
+                return
+            }
+
+            if (url.contains("play.d.tube") || url.contains("d.tube/watch/")) {
+                val dtubeId = Regex("""[?&]v=([0-9a-fA-F-]{36})""")
+                    .find(url)?.groupValues?.getOrNull(1)
+                    ?: Regex("""d\.tube/watch/([0-9a-fA-F-]{36})""")
+                        .find(url)?.groupValues?.getOrNull(1)
+
+                if (dtubeId != null) extractDTube(dtubeId, callback)
                 return
             }
 
