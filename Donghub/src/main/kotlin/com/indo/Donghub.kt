@@ -239,11 +239,21 @@ class Donghub : MainAPI() {
         } catch (_: Exception) { }
     }
 
-    private suspend fun extractVidhide(url: String, callback: (ExtractorLink) -> Unit) {
+    private suspend fun extractVidhide(
+        url: String,
+        callback: (ExtractorLink) -> Unit
+    ) {
         try {
-            val html = app.get(url, referer = "$mainUrl/").text
+            val html = app.get(
+                url,
+                headers = mapOf(
+                    "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                    "Referer" to "$mainUrl/"
+                )
+            ).text
+
             val packed = Regex(
-                """eval\s*\(\s*function\s*\(\s*p\s*,\s*a\s*,\s*c\s*,\s*k\s*,\s*e\s*,\s*d\s*\)\s*\{[\s\S]*?\}\s*\(\s*'((?:[^'\\]|\\.)*+)'\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*'([^']+)'\s*\.split\s*\(\s*'\|\s*'\s*\)\s*\)""",
+                """eval\s*\(\s*function\s*\(\s*p\s*,\s*a\s*,\s*c\s*,\s*k\s*,\s*e\s*,\s*d\s*\)\s*\{[\s\S]*?\}\s*\(\s*'((?:[^'\\]|\\.)*+)'\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*'([^']+)'\s*\.split\s*\(\s*'\|'\s*\)\s*\)""",
                 RegexOption.IGNORE_CASE
             ).find(html) ?: return
 
@@ -251,40 +261,47 @@ class Donghub : MainAPI() {
             val radix = packed.groupValues[2].toIntOrNull() ?: return
             val count = packed.groupValues[3].toIntOrNull() ?: return
             val dictionary = packed.groupValues[4].split("|")
-            var result = encoded
+            var decoded = encoded
 
             for (i in (count - 1) downTo 0) {
-                val replacement = dictionary.getOrNull(i)
-                if (!replacement.isNullOrEmpty()) {
-                    result = result.replace(
+                val word = dictionary.getOrNull(i)
+                if (!word.isNullOrEmpty()) {
+                    decoded = decoded.replace(
                         Regex("\\b" + Regex.escape(i.toString(radix)) + "\\b"),
-                        replacement
+                        word
                     )
                 }
             }
 
-            val m3u8Url = Regex("""['"]file['"]\s*:\s*['"]((?:[^'"]|\\.)*+)['"]""")
-                .find(result)?.groupValues?.getOrNull(1)
-                ?: Regex("""https?://[^\s"'<>]+\.m3u8[^\s"'<>]*""")
-                    .find(result)?.value
-                ?: return
+            val m3u8Url = Regex(
+                """https?://[^\s"'<>]+\.m3u8[^\s"'<>]*"""
+            ).find(decoded)?.value ?: return
 
-            val links = M3u8Helper.generateM3u8(
-                source = "VidHide",
-                streamUrl = m3u8Url,
-                referer = url,
-                headers = mapOf("Referer" to url)
-            )
+            val streamUrl = m3u8Url
+                .replace("&amp;", "&")
+                .replace("\\/", "/")
+
+            val links = try {
+                M3u8Helper.generateM3u8(
+                    source = "VidHide",
+                    streamUrl = streamUrl,
+                    referer = url,
+                    headers = mapOf("Referer" to url)
+                )
+            } catch (_: Exception) {
+                emptyList()
+            }
 
             if (links.isNotEmpty()) {
                 links.forEach { callback(it) }
             } else {
-                callback(newExtractorLink("VidHide", "VidHide", m3u8Url) {
+                callback(newExtractorLink("VidHide", "VidHide", streamUrl) {
                     this.referer = url
                     this.type = ExtractorLinkType.M3U8
                 })
             }
-        } catch (_: Exception) { }
+        } catch (_: Exception) {
+        }
     }
 
     override suspend fun loadLinks(
