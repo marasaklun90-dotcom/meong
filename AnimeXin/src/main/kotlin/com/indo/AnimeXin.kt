@@ -81,13 +81,12 @@ class AnimeXin : MainAPI() {
         val pageUrl = if (page > 1) "$mainUrl/page/$page/" else "$mainUrl/"
         val doc = app.get(pageUrl, headers = headers).document
 
-        val selector = if (request.name == "Popular Today") {
-            ".listupd.popularslider article.bs, .popularslider article.bs"
+        val items = if (request.name == "Popular Today") {
+            parseItems(doc, ".listupd.popularslider article.bs")
         } else {
-            ".listupd.normal article.bs, .listupd article.bs"
+            parseItems(doc, ".listupd.normal article.bs")
         }
 
-        val items = parseItems(doc, selector)
         return newHomePageResponse(request.name, items)
     }
 
