@@ -272,7 +272,14 @@ class AnimeXin : MainAPI() {
 
                 iframeUrl?.trim()
                     ?.takeIf { it.isNotBlank() }
-                    ?.let { links[fixUrl(it)] = label }
+                    ?.let { rawUrl ->
+                                val normalizedUrl = if (rawUrl.startsWith("//")) {
+                                    "https:$rawUrl"
+                                } else {
+                                    fixUrl(rawUrl)
+                                }
+                                links[normalizedUrl] = label
+                            }
             } catch (_: Exception) {
                 // Abaikan opsi yang gagal didekode.
             }
@@ -284,7 +291,14 @@ class AnimeXin : MainAPI() {
         ).forEach { iframe ->
             iframe.attr("src").trim()
                 .takeIf { it.isNotBlank() }
-                ?.let { links.putIfAbsent(fixUrl(it), "Default Player") }
+                ?.let { rawUrl ->
+                    val normalizedUrl = if (rawUrl.startsWith("//")) {
+                        "https:$rawUrl"
+                    } else {
+                        fixUrl(rawUrl)
+                    }
+                    links.putIfAbsent(normalizedUrl, "Default Player")
+                }
         }
 
         links.forEach { (url, serverLabel) ->
