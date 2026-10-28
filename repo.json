@@ -3,6 +3,6 @@
     "description": "CloudStream 3 extensions untuk situs streaming Indonesia",
     "manifestVersion": 1,
     "pluginLists": [
-        "https://github.com/marasaklun90-dotcom/meong/raw/main/plugins.json"
+        "https://raw.githubusercontent.com/marasaklun90-dotcom/meong/builds/plugins.json"
     ]
 }
