@@ -226,6 +226,108 @@ class AnimeXin : MainAPI() {
         }
     }
 
+    private fun dtubeUuid(videoId: String): String? {
+        val id = videoId.trim()
+
+        if (Regex(
+                """^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"""
+            ).matches(id)
+        ) return id
+
+        val alphabet =
+            "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+
+        if (id.isEmpty() || id.any { it !in alphabet }) return null
+
+        return try {
+            var number = java.math.BigInteger.ZERO
+            val radix = java.math.BigInteger.valueOf(58L)
+
+            for (char in id) {
+                number = number.multiply(radix)
+                    .add(java.math.BigInteger.valueOf(alphabet.indexOf(char).toLong()))
+            }
+
+            val hex = number.toString(16).padStart(32, '0')
+            if (hex.length != 32) return null
+
+            "${hex.substring(0, 8)}-${hex.substring(8, 12)}-" +
+                "${hex.substring(12, 16)}-${hex.substring(16, 20)}-" +
+                hex.substring(20, 32)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private suspend fun extractDTube(
+        url: String,
+        serverLabel: String,
+        callback: (ExtractorLink) -> Unit
+    ) {
+        val rawId = Regex("""[?&]v=([^&#]+)""")
+            .find(url)?.groupValues?.getOrNull(1)
+            ?: Regex("""d\.tube/watch/([^/?#]+)""")
+                .find(url)?.groupValues?.getOrNull(1)
+            ?: return
+
+        val videoId = dtubeUuid(rawId) ?: return
+        val referer = "https://play.d.tube/"
+        val streamHeaders = mapOf(
+            "Referer" to referer,
+            "User-Agent" to headers["User-Agent"].orEmpty()
+        )
+
+        for (host in listOf("nas2.d.tube", "nas1.d.tube")) {
+            val streamUrl =
+                "https://$host/videos/$videoId/master.m3u8"
+
+            try {
+                val response = app.get(streamUrl, headers = streamHeaders)
+                if (!response.text.trimStart().startsWith("#EXTM3U")) {
+                    continue
+                }
+
+                val extractedLinks = try {
+                    M3u8Helper.generateM3u8(
+                        source = "DTube",
+                        streamUrl = streamUrl,
+                        referer = referer,
+                        headers = streamHeaders
+                    )
+                } catch (_: Exception) {
+                    emptyList()
+                }
+
+                if (extractedLinks.isNotEmpty()) {
+                    for (extracted in extractedLinks) {
+                        callback(
+                            ExtractorLink(
+                                extracted.source,
+                                "$serverLabel - ${extracted.name}",
+                                extracted.url,
+                                extracted.referer,
+                                extracted.quality,
+                                extracted.headers,
+                                extracted.extractorData,
+                                extracted.type,
+                                extracted.audioTracks
+                            )
+                        )
+                    }
+                } else {
+                    callback(newExtractorLink("DTube", "$serverLabel - DTube", streamUrl) {
+                        this.referer = referer
+                        this.type = ExtractorLinkType.M3U8
+                        this.headers = streamHeaders
+                    })
+                }
+                return
+            } catch (_: Exception) {
+                // Coba server DTube berikutnya.
+            }
+        }
+    }
+
     override suspend fun loadLinks(
         data: String,
         isCasting: Boolean,
@@ -302,23 +404,30 @@ class AnimeXin : MainAPI() {
         }
 
         links.forEach { (url, serverLabel) ->
-            try {
-                loadExtractor(url, episodeUrl, subtitleCallback) { extracted ->
-                    val labeled = ExtractorLink(
-                        extracted.source,
-                        "$serverLabel - ${extracted.name}",
-                        extracted.url,
-                        extracted.referer,
-                        extracted.quality,
-                        extracted.headers,
-                        extracted.extractorData,
-                        extracted.type,
-                        extracted.audioTracks
-                    )
-                    callback(labeled)
+            if (
+                url.contains("play.d.tube", ignoreCase = true) ||
+                Regex("""d\.tube/watch/""", RegexOption.IGNORE_CASE).containsMatchIn(url)
+            ) {
+                extractDTube(url, serverLabel, callback)
+            } else {
+                try {
+                    loadExtractor(url, episodeUrl, subtitleCallback) { extracted ->
+                        val labeled = ExtractorLink(
+                            extracted.source,
+                            "$serverLabel - ${extracted.name}",
+                            extracted.url,
+                            extracted.referer,
+                            extracted.quality,
+                            extracted.headers,
+                            extracted.extractorData,
+                            extracted.type,
+                            extracted.audioTracks
+                        )
+                        callback(labeled)
+                    }
+                } catch (_: Exception) {
+                    // Kegagalan satu server tidak menghentikan server lainnya.
                 }
-            } catch (_: Exception) {
-                // Kegagalan satu server tidak menghentikan server lainnya.
             }
         }
 
