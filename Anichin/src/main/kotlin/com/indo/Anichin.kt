@@ -273,27 +273,34 @@ class Anichin : MainAPI() {
 
     private suspend fun extractRumble(url: String, callback: (ExtractorLink) -> Unit) {
         try {
-            val videoId = Regex("""(?:embed/|v=)([a-zA-Z0-9]+)""").find(url)?.groupValues?.getOrNull(1) ?: return
+            val videoId = Regex("""(?:embed/|[?&]v=)([a-zA-Z0-9]+)""")
+                .find(url)?.groupValues?.getOrNull(1) ?: return
             val apiUrl = "https://rumble.com/embedJS/u3/?request=video&v=$videoId"
-            val jsonText = app.get(apiUrl).text
+            val jsonText = app.get(
+                apiUrl,
+                headers = mapOf("Referer" to url, "User-Agent" to "Mozilla/5.0")
+            ).text
             val data = tryParseJson<Map<String, Any?>>(jsonText) ?: return
             val ua = data["ua"] as? Map<*, *> ?: return
 
             for ((key, value) in ua) {
-                val qInt = key.toString().toIntOrNull()
+                val qualityNum = key.toString().toIntOrNull()
                 val list = value as? List<*> ?: continue
-                val streamUrl = list.firstOrNull()?.toString()?.takeIf { it.isNotBlank() } ?: continue
-                val quality = when (qInt) {
+                val streamUrl = list.firstOrNull()?.toString()
+                    ?.takeIf { it.startsWith("http", true) } ?: continue
+                val quality = when (qualityNum) {
                     1080 -> Qualities.P1080.value
                     720 -> Qualities.P720.value
                     480 -> Qualities.P480.value
                     360 -> Qualities.P360.value
+                    240 -> Qualities.P240.value
                     else -> Qualities.Unknown.value
                 }
                 callback.invoke(
-                    newExtractorLink("Rumble", "Rumble ${qInt ?: ""}p".trim(), streamUrl) {
+                    newExtractorLink("Rumble", "Rumble ${qualityNum ?: ""}p".trim(), streamUrl) {
                         this.quality = quality
                         this.type = ExtractorLinkType.VIDEO
+                        this.referer = url
                     }
                 )
             }
