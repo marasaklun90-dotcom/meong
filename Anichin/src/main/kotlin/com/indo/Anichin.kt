@@ -119,16 +119,27 @@ class Anichin : MainAPI() {
             eplisterElements.mapNotNull { a ->
                 val epHref = fixUrl(a.attr("href"))
                 val epTitle = a.selectFirst(".epl-title")?.text()?.trim()?.ifBlank { null }
-                val epThumb = a.selectFirst("img")?.let { img ->
-                    img.attr("data-lazy-src")
-                        .ifBlank { img.attr("data-src") }
-                        .ifBlank { img.attr("data-original") }
-                        .ifBlank { img.attr("data-thumb") }
-                        .ifBlank { img.attr("data-lazy-srcset").substringBefore(",").trim().substringBefore(" ") }
-                        .ifBlank { img.attr("src") }
-                        .ifBlank { img.attr("srcset").substringBefore(",").trim().substringBefore(" ") }
-                    }?.takeIf { it.isNotBlank() && !it.startsWith("data:image", true) }
-                        ?.let { fixUrl(it) } ?: poster
+                val thumbElement = a.selectFirst(
+                    "img, [data-bg], [data-background], [style*=background]"
+                )
+                val rawThumb = thumbElement?.let { el ->
+                    val img = if (el.tagName() == "img") el else el.selectFirst("img")
+                    val attrs = listOf(
+                        img?.attr("data-lazy-src"),
+                        img?.attr("data-src"),
+                        img?.attr("data-original"),
+                        img?.attr("data-thumb"),
+                        img?.attr("src"),
+                        img?.attr("data-lazy-srcset")?.substringBefore(",")?.trim()?.substringBefore(" "),
+                        img?.attr("srcset")?.substringBefore(",")?.trim()?.substringBefore(" "),
+                        el.attr("data-bg"),
+                        el.attr("data-background")
+                    )
+                    attrs.firstOrNull { !it.isNullOrBlank() && !it.startsWith("data:image", true) }
+                        ?: Regex("""url\(['"]?(.*?)['"]?\)""")
+                            .find(el.attr("style"))?.groupValues?.getOrNull(1)
+                }
+                val epThumb = rawThumb?.let { fixUrl(it) } ?: poster
                 val numText = a.selectFirst(".epl-num")?.text()?.trim() ?: ""
                 val epNum = Regex("""\d+""").find(numText)?.value?.toIntOrNull()
                 newEpisode(epHref) {
