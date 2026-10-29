@@ -145,7 +145,7 @@ class Anichin : MainAPI() {
                 newEpisode(epHref) {
                     this.name = epTitle ?: (if (epNum != null) "Episode $epNum" else numText.ifBlank { "Episode" })
                     this.episode = epNum
-                    this.posterUrl = epThumb
+                    this.posterUrl = epThumb?.takeIf { it.isNotBlank() } ?: poster
                 }
             }
         } else if (episodelistElements.isNotEmpty()) {
@@ -161,7 +161,7 @@ class Anichin : MainAPI() {
                 newEpisode(epHref) {
                     this.name = epTitle ?: "Episode ${epNum ?: ""}"
                     this.episode = epNum
-                    this.posterUrl = epThumb
+                    this.posterUrl = epThumb?.takeIf { it.isNotBlank() } ?: poster
                 }
             }
         } else {
@@ -258,7 +258,7 @@ class Anichin : MainAPI() {
                 headers = mapOf("Referer" to url)
             )
             if (links.isNotEmpty()) {
-                links.forEach { callback(it) }
+                for (link in links) callback(link)
             } else {
                 callback.invoke(
                     newExtractorLink("VidHide", "VidHide", m3u8Url) {
@@ -278,10 +278,10 @@ class Anichin : MainAPI() {
             val data = tryParseJson<Map<String, Any?>>(jsonText) ?: return
             val ua = data["ua"] as? Map<*, *> ?: return
 
-            ua.forEach { (key, value) ->
+            for ((key, value) in ua) {
                 val qInt = key.toString().toIntOrNull()
-                val list = value as? List<*> ?: return@forEach
-                val streamUrl = list.firstOrNull()?.toString()?.takeIf { it.isNotBlank() } ?: return@forEach
+                val list = value as? List<*> ?: continue
+                val streamUrl = list.firstOrNull()?.toString()?.takeIf { it.isNotBlank() } ?: continue
                 val quality = when (qInt) {
                     1080 -> Qualities.P1080.value
                     720 -> Qualities.P720.value
@@ -309,11 +309,11 @@ class Anichin : MainAPI() {
             val metadataRaw = flashvars["metadata"]
             val metadata = (metadataRaw as? Map<*, *>) ?: (metadataRaw as? String)?.let { tryParseJson<Map<String, Any?>>(it) } ?: return
             val videos = metadata["videos"] as? List<*> ?: return
-            videos.forEach { v ->
-                val map = v as? Map<*, *> ?: return@forEach
+            for (v in videos) {
+                val map = v as? Map<*, *> ?: continue
                 val qualityName = map["name"]?.toString() ?: "SD"
-                val videoUrl = map["url"]?.toString() ?: return@forEach
-                if (!videoUrl.startsWith("http")) return@forEach
+                val videoUrl = map["url"]?.toString() ?: continue
+                if (!videoUrl.startsWith("http")) continue
                 val q = when (qualityName.lowercase()) {
                     "full" -> Qualities.P1080.value
                     "hd" -> Qualities.P720.value
