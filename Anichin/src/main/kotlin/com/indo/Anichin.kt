@@ -187,6 +187,7 @@ class Anichin : MainAPI() {
                     newEpisode(epHref) {
                         this.name = epTitle ?: (if (epNum != null) "Episode $epNum" else numText.ifBlank { "Episode" })
                         this.episode = epNum
+                        this.posterUrl = epThumb?.takeIf { it.isNotBlank() } ?: poster
                     }
                 }
             } else {
