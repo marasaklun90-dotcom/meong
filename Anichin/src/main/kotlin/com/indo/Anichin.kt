@@ -124,6 +124,7 @@ class Anichin : MainAPI() {
                         .ifBlank { img.attr("data-src") }
                         .ifBlank { img.attr("data-original") }
                         .ifBlank { img.attr("data-thumb") }
+                        .ifBlank { img.attr("data-lazy-srcset").substringBefore(",").trim().substringBefore(" ") }
                         .ifBlank { img.attr("src") }
                         .ifBlank { img.attr("srcset").substringBefore(",").trim().substringBefore(" ") }
                     }?.takeIf { it.isNotBlank() && !it.startsWith("data:image", true) }
@@ -165,6 +166,7 @@ class Anichin : MainAPI() {
                             .ifBlank { img.attr("data-src") }
                             .ifBlank { img.attr("data-original") }
                             .ifBlank { img.attr("data-thumb") }
+                        .ifBlank { img.attr("data-lazy-srcset").substringBefore(",").trim().substringBefore(" ") }
                             .ifBlank { img.attr("src") }
                             .ifBlank { img.attr("srcset").substringBefore(",").trim().substringBefore(" ") }
                         }?.takeIf { it.isNotBlank() && !it.startsWith("data:image", true) }
