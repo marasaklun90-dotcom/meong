@@ -1,5 +1,6 @@
 package com.indo
 
+import org.json.JSONObject
 import android.util.Base64
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.*
@@ -328,6 +329,58 @@ class AnimeXin : MainAPI() {
         }
     }
 
+
+    private suspend fun extractOkru(
+        url: String,
+        serverLabel: String,
+        callback: (ExtractorLink) -> Unit
+    ) {
+        try {
+            val doc = app.get(url, headers = headers).text
+            val opts = Regex("""data-options=["']([^"']+)["']""")
+                .find(doc)?.groupValues?.getOrNull(1) ?: return
+            val jsonStr = opts.replace("&quot;", "\"")
+            val root = JSONObject(jsonStr)
+            val flashvars = root.optJSONObject("flashvars") ?: return
+            val metadataRaw = flashvars.opt("metadata")
+            val metadata = when (metadataRaw) {
+                is JSONObject -> metadataRaw
+                is String -> JSONObject(metadataRaw)
+                else -> return
+            }
+            val videos = metadata.optJSONArray("videos") ?: return
+
+            for (i in 0 until videos.length()) {
+                val video = videos.optJSONObject(i) ?: continue
+                val qualityName = video.optString("name", "SD")
+                val videoUrl = video.optString("url", "")
+                if (videoUrl.isBlank()) continue
+                if (!videoUrl.startsWith("http")) continue
+
+                val quality = when (qualityName.lowercase()) {
+                    "full" -> Qualities.P1080.value
+                    "hd" -> Qualities.P720.value
+                    "sd" -> Qualities.P480.value
+                    "low" -> Qualities.P360.value
+                    "lowest", "mobile" -> Qualities.P240.value
+                    else -> Qualities.Unknown.value
+                }
+
+                callback(newExtractorLink(
+                    "Okru",
+                    "$serverLabel - Okru $qualityName",
+                    videoUrl
+                ) {
+                    this.quality = quality
+                    this.type = ExtractorLinkType.VIDEO
+                    this.referer = url
+                })
+            }
+        } catch (_: Exception) {
+            // Abaikan kegagalan satu mirror.
+        }
+    }
+
     override suspend fun loadLinks(
         data: String,
         isCasting: Boolean,
@@ -404,7 +457,9 @@ class AnimeXin : MainAPI() {
         }
 
         links.forEach { (url, serverLabel) ->
-            if (
+            if (url.contains("ok.ru", ignoreCase = true)) {
+                extractOkru(url, serverLabel, callback)
+            } else if (
                 url.contains("play.d.tube", ignoreCase = true) ||
                 Regex("""d\.tube/watch/""", RegexOption.IGNORE_CASE).containsMatchIn(url)
             ) {
