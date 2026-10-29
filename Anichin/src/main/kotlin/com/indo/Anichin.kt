@@ -123,7 +123,9 @@ class Anichin : MainAPI() {
                     img.attr("data-lazy-src")
                         .ifBlank { img.attr("data-src") }
                         .ifBlank { img.attr("data-original") }
+                        .ifBlank { img.attr("data-thumb") }
                         .ifBlank { img.attr("src") }
+                        .ifBlank { img.attr("srcset").substringBefore(",").trim().substringBefore(" ") }
                     }?.takeIf { it.isNotBlank() && !it.startsWith("data:image", true) }
                         ?.let { fixUrl(it) } ?: poster
                 val numText = a.selectFirst(".epl-num")?.text()?.trim() ?: ""
@@ -162,7 +164,9 @@ class Anichin : MainAPI() {
                         img.attr("data-lazy-src")
                             .ifBlank { img.attr("data-src") }
                             .ifBlank { img.attr("data-original") }
+                            .ifBlank { img.attr("data-thumb") }
                             .ifBlank { img.attr("src") }
+                            .ifBlank { img.attr("srcset").substringBefore(",").trim().substringBefore(" ") }
                         }?.takeIf { it.isNotBlank() && !it.startsWith("data:image", true) }
                             ?.let { fixUrl(it) } ?: poster
                     val numText = a.selectFirst(".epl-num")?.text()?.trim() ?: ""
