@@ -68,7 +68,7 @@ class Anichin : MainAPI() {
             "Popular Today" ->
                 ".releases.hothome + .listupd article.bs, .popularslider article.bs"
             "Movie" ->
-                "div.bixbox.bbnofrm article.bs"
+                ".bixbox.bbnofrm:has(.releases h3:matchesOwn(^Movie$)) .listupd article.bs"
             else ->
                 ".releases.latesthome + .listupd article.bs, .listupd.normal article.bs"
         }
