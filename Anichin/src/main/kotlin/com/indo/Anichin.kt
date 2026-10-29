@@ -278,8 +278,13 @@ class Anichin : MainAPI() {
 
     private suspend fun extractRumble(url: String, callback: (ExtractorLink) -> Unit) {
         try {
-            val videoId = Regex("""embed/(?:[a-zA-Z0-9]+\\.)?([a-zA-Z0-9]+)""")
-                .find(url)?.groupValues?.getOrNull(1) ?: return
+            val videoId = Regex("""/embed/(?:[a-zA-Z0-9]+\.)?([a-zA-Z0-9]+)""")
+                .find(url)?.groupValues?.getOrNull(1)
+            if (videoId.isNullOrBlank()) {
+                println("Rumble: gagal membaca ID dari URL: $url")
+                return
+            }
+            println("Rumble: URL=$url, ID=$videoId")
 
             val apiUrl = "https://rumble.com/embedJS/u3/?request=video&ver=2&v=$videoId"
             val data = tryParseJson<Map<String, Any?>>(
