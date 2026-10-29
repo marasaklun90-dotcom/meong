@@ -17,14 +17,9 @@ class Anichin : MainAPI() {
     override var lang = "id"
     override val hasDownloadSupport = true
     override val supportedTypes = setOf(TvType.Anime, TvType.AnimeMovie, TvType.TvSeries)
-    private val defaultHeaders = mapOf(
-        "Referer" to "https://anichin.moe/",
-        "User-Agent" to "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36"
-    )
 
     override val mainPage = mainPageOf(
         "$mainUrl/" to "Popular Today",
-        "$mainUrl/" to "Movie",
         "$mainUrl/" to "Latest Release",
     )
 
@@ -51,40 +46,31 @@ class Anichin : MainAPI() {
 
             newAnimeSearchResponse(title, href, tvType) {
                 this.posterUrl = poster
-                this.posterHeaders = defaultHeaders
                 addSub(epNum)
             }
         }.distinctBy { it.url }
     }
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
-        val doc = app.get(
-            if (request.name == "Movie" || page == 1) mainUrl
-            else "$mainUrl/page/$page/",
-            headers = defaultHeaders
-        ).document
-
-        val selector = when (request.name) {
-            "Popular Today" ->
-                ".releases.hothome + .listupd article.bs, .popularslider article.bs"
-            "Movie" ->
-                ".bixbox.bbnofrm:has(.releases h3:matchesOwn(^Movie$)) .listupd article.bs"
-            else ->
-                ".releases.latesthome + .listupd article.bs, .listupd.normal article.bs"
+        if (request.name == "Popular Today") {
+            val doc = app.get(mainUrl).document
+            val items = parseItems(doc, ".releases.hothome + .listupd article.bs, .popularslider article.bs")
+            return newHomePageResponse(request.name, items)
         }
 
-        val items = parseItems(doc, selector)
+        val doc = app.get(if (page > 1) "$mainUrl/page/$page/" else mainUrl).document
+        val items = parseItems(doc, ".releases.latesthome + .listupd article.bs, .listupd.normal article.bs")
         return newHomePageResponse(request.name, items)
     }
 
     override suspend fun search(query: String): List<SearchResponse> {
-        val doc = app.get("$mainUrl/?s=$query", headers = defaultHeaders).document
+        val doc = app.get("$mainUrl/?s=$query").document
         return parseItems(doc, "div.listupd article.bs")
     }
 
     override suspend fun load(url: String): LoadResponse {
         val fullUrl = fixUrl(url)
-        val doc = app.get(fullUrl, headers = defaultHeaders).document
+        val doc = app.get(fullUrl).document
 
         val breadcrumbSeries = doc.selectFirst(".ts-breadcrumb [itemprop=itemListElement]:nth-child(2) a [itemprop=name]")?.text()?.trim()
             ?: doc.selectFirst(".ts-breadcrumb [itemprop=itemListElement]:nth-child(2) a")?.text()?.trim()
@@ -119,33 +105,11 @@ class Anichin : MainAPI() {
             eplisterElements.mapNotNull { a ->
                 val epHref = fixUrl(a.attr("href"))
                 val epTitle = a.selectFirst(".epl-title")?.text()?.trim()?.ifBlank { null }
-                val thumbElement = a.selectFirst(
-                    "img, [data-bg], [data-background], [style*=background]"
-                )
-                val rawThumb = thumbElement?.let { el ->
-                    val img = if (el.tagName() == "img") el else el.selectFirst("img")
-                    val attrs = listOf(
-                        img?.attr("data-lazy-src"),
-                        img?.attr("data-src"),
-                        img?.attr("data-original"),
-                        img?.attr("data-thumb"),
-                        img?.attr("src"),
-                        img?.attr("data-lazy-srcset")?.substringBefore(",")?.trim()?.substringBefore(" "),
-                        img?.attr("srcset")?.substringBefore(",")?.trim()?.substringBefore(" "),
-                        el.attr("data-bg"),
-                        el.attr("data-background")
-                    )
-                    attrs.firstOrNull { !it.isNullOrBlank() && !it.startsWith("data:image", true) }
-                        ?: Regex("""url\(['"]?(.*?)['"]?\)""")
-                            .find(el.attr("style"))?.groupValues?.getOrNull(1)
-                }
-                val epThumb = rawThumb?.let { fixUrl(it) } ?: poster
                 val numText = a.selectFirst(".epl-num")?.text()?.trim() ?: ""
                 val epNum = Regex("""\d+""").find(numText)?.value?.toIntOrNull()
                 newEpisode(epHref) {
                     this.name = epTitle ?: (if (epNum != null) "Episode $epNum" else numText.ifBlank { "Episode" })
                     this.episode = epNum
-                    this.posterUrl = epThumb?.takeIf { it.isNotBlank() } ?: poster
                 }
             }
         } else if (episodelistElements.isNotEmpty()) {
@@ -161,7 +125,7 @@ class Anichin : MainAPI() {
                 newEpisode(epHref) {
                     this.name = epTitle ?: "Episode ${epNum ?: ""}"
                     this.episode = epNum
-                    this.posterUrl = epThumb?.takeIf { it.isNotBlank() } ?: poster
+                    this.posterUrl = epThumb
                 }
             }
         } else {
@@ -169,30 +133,14 @@ class Anichin : MainAPI() {
             val seriesHref = doc.selectFirst(".ts-breadcrumb [itemprop=itemListElement]:nth-child(2) a")?.attr("href")?.let { fixUrl(it) }
             if (seriesHref != null && seriesHref != fullUrl) {
                 val seriesDoc = app.get(seriesHref).document
-                val seriesPoster = seriesDoc.selectFirst(".thumb img, .thumbook img")?.let { img ->
-                    img.attr("data-src").ifBlank { null } ?: img.attr("src").ifBlank { null }
-                }?.let { fixUrl(it) }
-                    ?: seriesDoc.selectFirst("meta[property=og:image]")?.attr("content")?.takeIf { it.isNotBlank() }?.let { fixUrl(it) }
-                    ?: poster
                 seriesDoc.select(".eplister ul li a").mapNotNull { a ->
                     val epHref = fixUrl(a.attr("href"))
                     val epTitle = a.selectFirst(".epl-title")?.text()?.trim()?.ifBlank { null }
-                    val epThumb = a.selectFirst("img")?.let { img ->
-                        img.attr("data-lazy-src")
-                            .ifBlank { img.attr("data-src") }
-                            .ifBlank { img.attr("data-original") }
-                            .ifBlank { img.attr("data-thumb") }
-                        .ifBlank { img.attr("data-lazy-srcset").substringBefore(",").trim().substringBefore(" ") }
-                            .ifBlank { img.attr("src") }
-                            .ifBlank { img.attr("srcset").substringBefore(",").trim().substringBefore(" ") }
-                        }?.takeIf { it.isNotBlank() && !it.startsWith("data:image", true) }
-                            ?.let { fixUrl(it) } ?: seriesPoster
                     val numText = a.selectFirst(".epl-num")?.text()?.trim() ?: ""
                     val epNum = Regex("""\d+""").find(numText)?.value?.toIntOrNull()
                     newEpisode(epHref) {
                         this.name = epTitle ?: (if (epNum != null) "Episode $epNum" else numText.ifBlank { "Episode" })
                         this.episode = epNum
-                        this.posterUrl = epThumb?.takeIf { it.isNotBlank() } ?: seriesPoster
                     }
                 }
             } else {
@@ -214,7 +162,6 @@ class Anichin : MainAPI() {
             return newAnimeLoadResponse(title, fullUrl, tvType) {
                 engName = title
                 posterUrl = poster
-                this.posterHeaders = defaultHeaders
                 addEpisodes(DubStatus.Subbed, sortedEpisodes)
                 showStatus = status
                 this.year = year
@@ -225,7 +172,6 @@ class Anichin : MainAPI() {
 
         return newMovieLoadResponse(title, fullUrl, TvType.AnimeMovie, fullUrl) {
             this.posterUrl = poster
-            this.posterHeaders = defaultHeaders
             this.plot = synopsis
             this.tags = tags
         }
@@ -274,81 +220,6 @@ class Anichin : MainAPI() {
                 )
             }
         } catch (_: Exception) { }
-    }
-
-    private suspend fun extractRumble(url: String, callback: (ExtractorLink) -> Unit) {
-        try {
-            val videoId = Regex("""embed/(?:[a-zA-Z0-9]+\\.)?([a-zA-Z0-9]+)""")
-                .find(url)?.groupValues?.getOrNull(1) ?: return
-
-            val apiUrl = "https://rumble.com/embedJS/u3/?request=video&ver=2&v=$videoId"
-            val data = tryParseJson<Map<String, Any?>>(
-                app.get(
-                    apiUrl,
-                    headers = mapOf(
-                        "Referer" to url,
-                        "User-Agent" to "Mozilla/5.0"
-                    )
-                ).text
-            ) ?: return
-
-            val ua = data["ua"] as? Map<*, *> ?: return
-
-            for ((formatKey, formatValue) in ua) {
-                val format = formatKey?.toString()?.lowercase() ?: continue
-                if (format == "tar" || format == "timeline" || format == "audio") continue
-
-                val videos = mutableListOf<Pair<String?, Map<*, *>>>()
-                val formatMap = formatValue as? Map<*, *> ?: continue
-
-                if (formatMap["url"] is String) {
-                    videos.add(null to formatMap)
-                } else {
-                    for ((heightKey, item) in formatMap) {
-                        val info = item as? Map<*, *> ?: continue
-                        if (info["url"] is String) {
-                            videos.add(heightKey?.toString() to info)
-                        }
-                    }
-                }
-
-                for ((heightKey, info) in videos) {
-                    val streamUrl = info["url"]?.toString()
-                        ?.takeIf { it.startsWith("http", true) } ?: continue
-                    val meta = info["meta"] as? Map<*, *>
-                    val height = (meta?.get("h")?.toString()
-                        ?: heightKey)?.toIntOrNull()
-
-                    val quality = when (height) {
-                        1080 -> Qualities.P1080.value
-                        720 -> Qualities.P720.value
-                        480 -> Qualities.P480.value
-                        360 -> Qualities.P360.value
-                        240 -> Qualities.P240.value
-                        else -> Qualities.Unknown.value
-                    }
-
-                    val linkType = if (format == "hls") {
-                        ExtractorLinkType.M3U8
-                    } else {
-                        ExtractorLinkType.VIDEO
-                    }
-
-                    callback.invoke(
-                        newExtractorLink(
-                            "Rumble",
-                            "Rumble ${height?.let { "${it}p" } ?: format}",
-                            streamUrl
-                        ) {
-                            this.quality = quality
-                            this.type = linkType
-                            this.referer = url
-                        }
-                    )
-                }
-            }
-        } catch (_: Exception) {
-        }
     }
 
     private suspend fun extractOkru(url: String, callback: (ExtractorLink) -> Unit) {
@@ -418,10 +289,7 @@ class Anichin : MainAPI() {
             fullUrl.contains("vidhide") || fullUrl.contains("bingezove.com") || fullUrl.contains("vidhidepre.com") -> {
                 extractVidhide(fullUrl, callback)
             }
-            fullUrl.contains("rumble.com") -> {
-                extractRumble(fullUrl, callback)
-            }
-            fullUrl.contains("playmogo.com") || fullUrl.contains("dood") -> {
+fullUrl.contains("playmogo.com") || fullUrl.contains("dood") -> {
                 extractPlaymogo(fullUrl, callback)
             }
             else -> {
