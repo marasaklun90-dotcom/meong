@@ -276,46 +276,19 @@ class Anichin : MainAPI() {
         } catch (_: Exception) { }
     }
 
-    private suspend fun extractRumble(url: String, callback: (ExtractorLink) -> Unit) {
+    private suspend fun extractRumble(
+        url: String,
+        callback: (ExtractorLink) -> Unit
+    ) {
         try {
-            val videoId = Regex("""(?:embed/|v=)([a-zA-Z0-9]+)""")
-                .find(url)?.groupValues?.getOrNull(1) ?: return
+            val rumbleUrl = url.trim()
+            if (!rumbleUrl.contains("rumble.com", ignoreCase = true)) return
 
-            val apiUrl = "https://rumble.com/embedJS/u3/?request=video&v=$videoId"
-            val jsonText = app.get(apiUrl).text
-            val data = tryParseJson<Map<String, Any?>>(jsonText) ?: return
-            val ua = data["ua"] as? Map<*, *> ?: return
-
-            ua.forEach { (key, value) ->
-                val qualityNumber = key.toString().toIntOrNull()
-                val list = value as? List<*> ?: return@forEach
-                val streamUrl = list.firstOrNull()?.toString()
-                    ?.takeIf { it.startsWith("http", true) }
-                    ?: return@forEach
-
-                val quality = when (qualityNumber) {
-                    1080 -> Qualities.P1080.value
-                    720 -> Qualities.P720.value
-                    480 -> Qualities.P480.value
-                    360 -> Qualities.P360.value
-                    240 -> Qualities.P240.value
-                    else -> Qualities.Unknown.value
-                }
-
-                callback.invoke(
-                    newExtractorLink(
-                        "Rumble",
-                        "Rumble ${qualityNumber ?: ""}p".trim(),
-                        streamUrl
-                    ) {
-                        this.quality = quality
-                        this.type = ExtractorLinkType.VIDEO
-                    }
-                )
-            }
+            loadExtractor(rumbleUrl, mainUrl, { }, callback)
         } catch (_: Exception) {
         }
     }
+
     private suspend fun extractOkru(url: String, callback: (ExtractorLink) -> Unit) {
         try {
             val doc = app.get(url).text
