@@ -169,6 +169,11 @@ class Anichin : MainAPI() {
             val seriesHref = doc.selectFirst(".ts-breadcrumb [itemprop=itemListElement]:nth-child(2) a")?.attr("href")?.let { fixUrl(it) }
             if (seriesHref != null && seriesHref != fullUrl) {
                 val seriesDoc = app.get(seriesHref).document
+                val seriesPoster = seriesDoc.selectFirst(".thumb img, .thumbook img")?.let { img ->
+                    img.attr("data-src").ifBlank { null } ?: img.attr("src").ifBlank { null }
+                }?.let { fixUrl(it) }
+                    ?: seriesDoc.selectFirst("meta[property=og:image]")?.attr("content")?.takeIf { it.isNotBlank() }?.let { fixUrl(it) }
+                    ?: poster
                 seriesDoc.select(".eplister ul li a").mapNotNull { a ->
                     val epHref = fixUrl(a.attr("href"))
                     val epTitle = a.selectFirst(".epl-title")?.text()?.trim()?.ifBlank { null }
@@ -181,13 +186,13 @@ class Anichin : MainAPI() {
                             .ifBlank { img.attr("src") }
                             .ifBlank { img.attr("srcset").substringBefore(",").trim().substringBefore(" ") }
                         }?.takeIf { it.isNotBlank() && !it.startsWith("data:image", true) }
-                            ?.let { fixUrl(it) } ?: poster
+                            ?.let { fixUrl(it) } ?: seriesPoster
                     val numText = a.selectFirst(".epl-num")?.text()?.trim() ?: ""
                     val epNum = Regex("""\d+""").find(numText)?.value?.toIntOrNull()
                     newEpisode(epHref) {
                         this.name = epTitle ?: (if (epNum != null) "Episode $epNum" else numText.ifBlank { "Episode" })
                         this.episode = epNum
-                        this.posterUrl = epThumb?.takeIf { it.isNotBlank() } ?: poster
+                        this.posterUrl = epThumb?.takeIf { it.isNotBlank() } ?: seriesPoster
                     }
                 }
             } else {
