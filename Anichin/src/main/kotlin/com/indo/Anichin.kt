@@ -119,11 +119,19 @@ class Anichin : MainAPI() {
             eplisterElements.mapNotNull { a ->
                 val epHref = fixUrl(a.attr("href"))
                 val epTitle = a.selectFirst(".epl-title")?.text()?.trim()?.ifBlank { null }
+                val epThumb = a.selectFirst("img")?.let { img ->
+                    img.attr("data-lazy-src")
+                        .ifBlank { img.attr("data-src") }
+                        .ifBlank { img.attr("data-original") }
+                        .ifBlank { img.attr("src") }
+                    }?.takeIf { it.isNotBlank() && !it.startsWith("data:image", true) }
+                        ?.let { fixUrl(it) } ?: poster
                 val numText = a.selectFirst(".epl-num")?.text()?.trim() ?: ""
                 val epNum = Regex("""\d+""").find(numText)?.value?.toIntOrNull()
                 newEpisode(epHref) {
                     this.name = epTitle ?: (if (epNum != null) "Episode $epNum" else numText.ifBlank { "Episode" })
                     this.episode = epNum
+                    this.posterUrl = epThumb
                 }
             }
         } else if (episodelistElements.isNotEmpty()) {
@@ -150,6 +158,13 @@ class Anichin : MainAPI() {
                 seriesDoc.select(".eplister ul li a").mapNotNull { a ->
                     val epHref = fixUrl(a.attr("href"))
                     val epTitle = a.selectFirst(".epl-title")?.text()?.trim()?.ifBlank { null }
+                    val epThumb = a.selectFirst("img")?.let { img ->
+                        img.attr("data-lazy-src")
+                            .ifBlank { img.attr("data-src") }
+                            .ifBlank { img.attr("data-original") }
+                            .ifBlank { img.attr("src") }
+                        }?.takeIf { it.isNotBlank() && !it.startsWith("data:image", true) }
+                            ?.let { fixUrl(it) } ?: poster
                     val numText = a.selectFirst(".epl-num")?.text()?.trim() ?: ""
                     val epNum = Regex("""\d+""").find(numText)?.value?.toIntOrNull()
                     newEpisode(epHref) {
