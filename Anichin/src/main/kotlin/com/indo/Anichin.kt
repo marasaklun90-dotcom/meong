@@ -57,14 +57,22 @@ class Anichin : MainAPI() {
     }
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
-        if (request.name == "Popular Today") {
-            val doc = app.get(mainUrl, headers = defaultHeaders).document
-            val items = parseItems(doc, ".releases.hothome + .listupd article.bs, .popularslider article.bs")
-            return newHomePageResponse(request.name, items)
+        val doc = app.get(
+            if (request.name == "Movie" || page == 1) mainUrl
+            else "$mainUrl/page/$page/",
+            headers = defaultHeaders
+        ).document
+
+        val selector = when (request.name) {
+            "Popular Today" ->
+                ".releases.hothome + .listupd article.bs, .popularslider article.bs"
+            "Movie" ->
+                "div.bixbox.bbnofrm article.bs"
+            else ->
+                ".releases.latesthome + .listupd article.bs, .listupd.normal article.bs"
         }
 
-        val doc = app.get(if (page > 1) "$mainUrl/page/$page/" else mainUrl, headers = defaultHeaders).document
-        val items = parseItems(doc, ".releases.latesthome + .listupd article.bs, .listupd.normal article.bs")
+        val items = parseItems(doc, selector)
         return newHomePageResponse(request.name, items)
     }
 
