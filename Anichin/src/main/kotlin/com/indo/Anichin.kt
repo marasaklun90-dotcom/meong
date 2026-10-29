@@ -276,15 +276,37 @@ class Anichin : MainAPI() {
         } catch (_: Exception) { }
     }
 
-    private suspend fun extractRumble(
-        url: String,
-        callback: (ExtractorLink) -> Unit
-    ) {
+    private suspend fun extractRumble(url: String, callback: (ExtractorLink) -> Unit) {
         try {
-            val rumbleUrl = url.trim()
-            if (!rumbleUrl.contains("rumble.com", ignoreCase = true)) return
+            val videoId = Regex("""(?:embed/|v=)([a-zA-Z0-9]+)""")
+                .find(url)?.groupValues?.getOrNull(1) ?: return
 
-            loadExtractor(rumbleUrl, mainUrl, { }, callback)
+            val apiUrl = "https://rumble.com/embedJS/u3/?request=video&v=$videoId"
+            val jsonText = app.get(apiUrl).text
+            val data = tryParseJson<Map<String, Any?>>(jsonText) ?: return
+            val ua = data["ua"] as? Map<*, *> ?: return
+
+            ua.forEach { (key, value) ->
+                val qInt = key.toString().toIntOrNull()
+                val list = value as? List<*> ?: return@forEach
+                val streamUrl = list.firstOrNull()?.toString()
+                    ?.takeIf { it.isNotBlank() } ?: return@forEach
+
+                val quality = when (qInt) {
+                    1080 -> Qualities.P1080.value
+                    720 -> Qualities.P720.value
+                    480 -> Qualities.P480.value
+                    360 -> Qualities.P360.value
+                    else -> Qualities.Unknown.value
+                }
+
+                callback.invoke(
+                    newExtractorLink("Rumble", "Rumble ${qInt ?: ""}p".trim(), streamUrl) {
+                        this.quality = quality
+                        this.type = ExtractorLinkType.VIDEO
+                    }
+                )
+            }
         } catch (_: Exception) {
         }
     }
