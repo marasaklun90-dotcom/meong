@@ -278,84 +278,44 @@ class Anichin : MainAPI() {
 
     private suspend fun extractRumble(url: String, callback: (ExtractorLink) -> Unit) {
         try {
-            val videoId = Regex("""/embed/(?:[a-zA-Z0-9]+\.)?([a-zA-Z0-9]+)""")
-                .find(url)?.groupValues?.getOrNull(1)
-            if (videoId.isNullOrBlank()) {
-                println("Rumble: gagal membaca ID dari URL: $url")
-                return
-            }
-            println("Rumble: URL=$url, ID=$videoId")
+            val videoId = Regex("""(?:embed/|v=)([a-zA-Z0-9]+)""")
+                .find(url)?.groupValues?.getOrNull(1) ?: return
 
-            val apiUrl = "https://rumble.com/embedJS/u3/?request=video&ver=2&v=$videoId"
-            val data = tryParseJson<Map<String, Any?>>(
-                app.get(
-                    apiUrl,
-                    headers = mapOf(
-                        "Referer" to url,
-                        "User-Agent" to "Mozilla/5.0"
-                    )
-                ).text
-            ) ?: return
-
+            val apiUrl = "https://rumble.com/embedJS/u3/?request=video&v=$videoId"
+            val jsonText = app.get(apiUrl).text
+            val data = tryParseJson<Map<String, Any?>>(jsonText) ?: return
             val ua = data["ua"] as? Map<*, *> ?: return
 
-            for ((formatKey, formatValue) in ua) {
-                val format = formatKey?.toString()?.lowercase() ?: continue
-                if (format == "tar" || format == "timeline" || format == "audio") continue
+            ua.forEach { (key, value) ->
+                val qualityNumber = key.toString().toIntOrNull()
+                val list = value as? List<*> ?: return@forEach
+                val streamUrl = list.firstOrNull()?.toString()
+                    ?.takeIf { it.startsWith("http", true) }
+                    ?: return@forEach
 
-                val videos = mutableListOf<Pair<String?, Map<*, *>>>()
-                val formatMap = formatValue as? Map<*, *> ?: continue
-
-                if (formatMap["url"] is String) {
-                    videos.add(null to formatMap)
-                } else {
-                    for ((heightKey, item) in formatMap) {
-                        val info = item as? Map<*, *> ?: continue
-                        if (info["url"] is String) {
-                            videos.add(heightKey?.toString() to info)
-                        }
-                    }
+                val quality = when (qualityNumber) {
+                    1080 -> Qualities.P1080.value
+                    720 -> Qualities.P720.value
+                    480 -> Qualities.P480.value
+                    360 -> Qualities.P360.value
+                    240 -> Qualities.P240.value
+                    else -> Qualities.Unknown.value
                 }
 
-                for ((heightKey, info) in videos) {
-                    val streamUrl = info["url"]?.toString()
-                        ?.takeIf { it.startsWith("http", true) } ?: continue
-                    val meta = info["meta"] as? Map<*, *>
-                    val height = (meta?.get("h")?.toString()
-                        ?: heightKey)?.toIntOrNull()
-
-                    val quality = when (height) {
-                        1080 -> Qualities.P1080.value
-                        720 -> Qualities.P720.value
-                        480 -> Qualities.P480.value
-                        360 -> Qualities.P360.value
-                        240 -> Qualities.P240.value
-                        else -> Qualities.Unknown.value
+                callback.invoke(
+                    newExtractorLink(
+                        "Rumble",
+                        "Rumble ${qualityNumber ?: ""}p".trim(),
+                        streamUrl
+                    ) {
+                        this.quality = quality
+                        this.type = ExtractorLinkType.VIDEO
                     }
-
-                    val linkType = if (format == "hls") {
-                        ExtractorLinkType.M3U8
-                    } else {
-                        ExtractorLinkType.VIDEO
-                    }
-
-                    callback.invoke(
-                        newExtractorLink(
-                            "Rumble",
-                            "Rumble ${height?.let { "${it}p" } ?: format}",
-                            streamUrl
-                        ) {
-                            this.quality = quality
-                            this.type = linkType
-                            this.referer = url
-                        }
-                    )
-                }
+                )
             }
         } catch (_: Exception) {
         }
     }
-
     private suspend fun extractOkru(url: String, callback: (ExtractorLink) -> Unit) {
         try {
             val doc = app.get(url).text
