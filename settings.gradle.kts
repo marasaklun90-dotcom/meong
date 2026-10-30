@@ -8,5 +8,6 @@ include(
     "BlurayUFR",
     "LayarAsia",
     "AnimeXin",
-    "MovieBox"
+    "MovieBox",
+    "AnichinTes"
 )
