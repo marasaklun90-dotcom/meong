@@ -131,4 +131,33 @@ class AnichinTes : MainAPI() {
         }
     }
 
+
+
+    override suspend fun loadLinks(
+        data: String,
+        isCastingLink: Boolean,
+        subtitleCallback: (SubtitleFile) -> Unit,
+        callback: (ExtractorLink) -> Unit
+    ): Boolean {
+        val document = app.get(data).document
+
+        val iframe = document.selectFirst(
+            ".megavid #embed_holder .player-embed iframe"
+        )?.attr("src")?.trim()
+
+        if (iframe.isNullOrBlank()) {
+            throw Exception("Player video tidak ditemukan")
+        }
+
+        val videoUrl = when {
+            iframe.startsWith("//") -> "https:$iframe"
+            iframe.startsWith("/") -> mainUrl + iframe
+            else -> iframe
+        }
+
+        loadExtractor(videoUrl, data, subtitleCallback, callback)
+
+        return true
+    }
+
 }
