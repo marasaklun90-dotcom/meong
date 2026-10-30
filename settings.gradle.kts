@@ -7,5 +7,6 @@ include(
     "LK21",
     "BlurayUFR",
     "LayarAsia",
-    "AnimeXin"
+    "AnimeXin",
+    "MovieBox"
 )
