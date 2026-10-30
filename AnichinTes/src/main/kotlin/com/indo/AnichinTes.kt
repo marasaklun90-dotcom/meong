@@ -80,4 +80,55 @@ class AnichinTes : MainAPI() {
             }
         }
     }
+
+    override suspend fun load(url: String): LoadResponse {
+        val document = app.get(url).document
+
+        val title = document.selectFirst(".infox h1.entry-title")
+            ?.text()?.trim()
+            ?: throw Exception("Judul anime tidak ditemukan")
+
+        val poster = document.selectFirst(".thumbook .thumb img")?.let {
+            it.attr("data-src").ifBlank { it.attr("src") }
+        }
+
+        val description = document.selectFirst(".entry-content .mindesc")
+            ?.text()?.trim()
+
+        val genres = document.select(".info-content .genxed a")
+            .map { it.text().trim() }
+            .filter { it.isNotBlank() }
+
+        val statusText = document.select(".info-content .spe span")
+            .firstOrNull { it.text().contains("Status:", true) }
+            ?.text()?.substringAfter(":")?.trim()
+
+        val status = when {
+            statusText?.contains("ongoing", true) == true -> ShowStatus.Ongoing
+            statusText?.contains("completed", true) == true -> ShowStatus.Completed
+            else -> null
+        }
+
+        val episodes = document.select(".eplister ul li").mapNotNull { item ->
+            val a = item.selectFirst("a") ?: return@mapNotNull null
+            val episodeTitle = item.selectFirst(".epl-title")?.text()?.trim()
+                ?: return@mapNotNull null
+            val episodeNumber = item.selectFirst(".epl-num")?.text()
+                ?.trim()?.toIntOrNull()
+
+            newEpisode(a.attr("href")) {
+                name = episodeTitle
+                episode = episodeNumber
+            }
+        }
+
+        return newAnimeLoadResponse(title, url, TvType.Anime) {
+            posterUrl = poster
+            plot = description
+            tags = genres
+            showStatus = status
+            addEpisodes(DubStatus.Subbed, episodes)
+        }
+    }
+
 }
