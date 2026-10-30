@@ -7,6 +7,8 @@ import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.Qualities
 import com.lagradost.cloudstream3.utils.loadExtractor
 import com.lagradost.cloudstream3.utils.newExtractorLink
+import org.json.JSONObject
+import org.jsoup.Jsoup
 
 class Otakudesu : MainAPI() {
     override var mainUrl = "https://otakudesu.blog"
@@ -109,8 +111,71 @@ class Otakudesu : MainAPI() {
         } catch (e: Exception) { null }
     }
 
+    private suspend fun loadMirrors(
+        data: String,
+        subtitleCallback: (SubtitleFile) -> Unit,
+        callback: (ExtractorLink) -> Unit
+    ) {
+        try {
+            val res = app.get(data, headers = ua)
+            val html = res.text
+            val ajax = "$mainUrl/wp-admin/admin-ajax.php"
+
+            val nonceAction = Regex("""action:"([a-f0-9]{32})"\}\}\)\.done\(\(\{data:\w\}\)=>\{win""")
+                .find(html)?.groupValues?.get(1) ?: return
+            val embedAction = Regex("""action:"([a-f0-9]{32})"\}\}\)\.done\(\(\{data:\w\}\)=>\{doc""")
+                .find(html)?.groupValues?.get(1) ?: return
+
+            val nonce = JSONObject(
+                app.post(ajax, headers = ua, referer = mainUrl, data = mapOf("action" to nonceAction)).text
+            ).optString("data")
+            if (nonce.isBlank()) return
+
+            res.document.select("a[data-content]").forEach { a ->
+                try {
+                    val json = JSONObject(base64Decode(a.attr("data-content")))
+                    val q = json.getString("q")
+                    val label = a.text().trim().ifBlank { "Stream" }
+                    val quality = q.filter { it.isDigit() }.toIntOrNull() ?: Qualities.Unknown.value
+
+                    val enc = JSONObject(
+                        app.post(
+                            ajax, headers = ua, referer = mainUrl,
+                            data = mapOf(
+                                "id" to json.get("id").toString(),
+                                "i" to json.get("i").toString(),
+                                "q" to q,
+                                "nonce" to nonce,
+                                "action" to embedAction
+                            )
+                        ).text
+                    ).optString("data")
+                    if (enc.isBlank()) return@forEach
+
+                    val src = Jsoup.parse(base64Decode(enc)).selectFirst("iframe")?.attr("src")
+                        ?: return@forEach
+                    if (src.contains("maintenance")) return@forEach
+
+                    if (src.contains("desustream.net/dstream")) {
+                        val video = app.get(src, headers = ua, referer = mainUrl).document
+                            .selectFirst("source[src]")?.attr("src") ?: return@forEach
+                        callback(newExtractorLink(name, "Stream $label", video) {
+                            this.quality = quality
+                            this.referer = src
+                        })
+                    } else {
+                        loadExtractor(src, data, subtitleCallback, callback)
+                    }
+                } catch (_: Exception) {
+                }
+            }
+        } catch (_: Exception) {
+        }
+    }
+
     override suspend fun loadLinks(data: String, isCasting: Boolean, subtitleCallback: (SubtitleFile) -> Unit, callback: (ExtractorLink) -> Unit): Boolean {
         val document = app.get(data, headers = ua).document
+        loadMirrors(data, subtitleCallback, callback)
 
         document.select("div.download li").forEach { li ->
             val qualityText = li.selectFirst("strong")?.text() ?: ""
