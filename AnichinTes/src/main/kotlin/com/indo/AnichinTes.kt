@@ -161,21 +161,43 @@ class AnichinTes : MainAPI() {
     ): Boolean {
         val document = app.get(data).document
 
-        val iframe = document.selectFirst(
-            ".megavid #embed_holder .player-embed iframe"
-        )?.attr("src")?.trim()
+        val servers = document.select("select.mirror option")
+            .mapNotNull { option ->
+                option.attr("value").trim().takeIf {
+                    it.startsWith("http")
+                }
+            }
 
-        if (iframe.isNullOrBlank()) {
-            throw Exception("Player video tidak ditemukan")
+        if (servers.isEmpty()) {
+            throw Exception("Server video tidak ditemukan")
         }
 
-        val videoUrl = when {
-            iframe.startsWith("//") -> "https:$iframe"
-            iframe.startsWith("/") -> mainUrl + iframe
-            else -> iframe
-        }
+        servers.forEach { serverUrl ->
+            val serverPage = app.get(
+                serverUrl,
+                referer = data
+            ).document
 
-        loadExtractor(videoUrl, data, subtitleCallback, callback)
+            val iframe = serverPage.selectFirst(
+                "#embed_holder iframe, .player-embed iframe, iframe"
+            )?.let {
+                it.attr("data-litespeed-src")
+                    .ifBlank { it.attr("src") }
+                    .trim()
+            }
+
+            if (!iframe.isNullOrBlank() &&
+                iframe != "about:blank" &&
+                iframe.startsWith("http")
+            ) {
+                loadExtractor(
+                    iframe,
+                    serverUrl,
+                    subtitleCallback,
+                    callback
+                )
+            }
+        }
 
         return true
     }
