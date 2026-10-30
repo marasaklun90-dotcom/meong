@@ -278,36 +278,51 @@ class Anichin : MainAPI() {
 
     private suspend fun extractRumble(url: String, callback: (ExtractorLink) -> Unit) {
         try {
-            val videoId = Regex("""(?:embed/|v=)([a-zA-Z0-9]+)""")
-                .find(url)?.groupValues?.getOrNull(1) ?: return
+            val videoId = Regex("""embed/([a-zA-Z0-9]+)""").find(url)?.groupValues?.get(1)
+                ?: Regex("""[?&]v=([a-zA-Z0-9]+)""").find(url)?.groupValues?.get(1)
+                ?: return
 
-            val apiUrl = "https://rumble.com/embedJS/u3/?request=video&v=$videoId"
-            val jsonText = app.get(apiUrl).text
-            val data = tryParseJson<Map<String, Any?>>(jsonText) ?: return
-            val ua = data["ua"] as? Map<*, *> ?: return
+            val apiUrl = "https://rumble.com/embedJS/u3/?request=video&ver=2&v=$videoId"
+            val jsonText = app.get(
+                apiUrl,
+                referer = "https://rumble.com/",
+                headers = mapOf("User-Agent" to "Mozilla/5.0 (Linux; Android 13) Chrome/120 Mobile Safari/537.36")
+            ).text
+            android.util.Log.d("ANICHIN", "rumble json: ${jsonText.take(300)}")
 
-            ua.forEach { (key, value) ->
-                val qInt = key.toString().toIntOrNull()
-                val list = value as? List<*> ?: return@forEach
-                val streamUrl = list.firstOrNull()?.toString()
-                    ?.takeIf { it.isNotBlank() } ?: return@forEach
+            val root = tryParseJson<Map<String, Any?>>(jsonText) ?: return
+            val ua = root["ua"] as? Map<*, *> ?: return
 
-                val quality = when (qInt) {
-                    1080 -> Qualities.P1080.value
-                    720 -> Qualities.P720.value
-                    480 -> Qualities.P480.value
-                    360 -> Qualities.P360.value
-                    else -> Qualities.Unknown.value
+            ua.forEach { (format, qualities) ->
+                val fmt = format.toString()
+                if (fmt == "webm") return@forEach
+                val qMap = qualities as? Map<*, *> ?: return@forEach
+                qMap.forEach { (q, info) ->
+                    val streamUrl = (info as? Map<*, *>)?.get("url")?.toString()
+                        ?.takeIf { it.isNotBlank() } ?: return@forEach
+                    val qInt = q.toString().toIntOrNull()
+                    val isHls = fmt == "hls"
+                    callback.invoke(
+                        newExtractorLink(
+                            "Rumble",
+                            if (isHls) "Rumble HLS" else "Rumble ${qInt ?: ""}p".trim(),
+                            streamUrl
+                        ) {
+                            this.referer = "https://rumble.com/"
+                            this.quality = when (qInt) {
+                                1080 -> Qualities.P1080.value
+                                720 -> Qualities.P720.value
+                                480 -> Qualities.P480.value
+                                360 -> Qualities.P360.value
+                                else -> Qualities.Unknown.value
+                            }
+                            this.type = if (isHls) ExtractorLinkType.M3U8 else ExtractorLinkType.VIDEO
+                        }
+                    )
                 }
-
-                callback.invoke(
-                    newExtractorLink("Rumble", "Rumble ${qInt ?: ""}p".trim(), streamUrl) {
-                        this.quality = quality
-                        this.type = ExtractorLinkType.VIDEO
-                    }
-                )
             }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            android.util.Log.e("ANICHIN", "rumble error", e)
         }
     }
 
