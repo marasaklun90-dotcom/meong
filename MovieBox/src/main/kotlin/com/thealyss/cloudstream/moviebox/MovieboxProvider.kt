@@ -282,11 +282,11 @@ class MovieboxProvider : MainAPI() {
     // Curated Main Page without Anime or Dubbed duplicates
     override val mainPage: List<MainPageData> = mainPageOf(
         "872031290915189720" to "Trending Now",
+        "1,Latest" to "Movie Latest",
         "4380734070238626200" to "K-Drama",
         "7736026911486755336" to "Western TV",
         "8624142774394406504" to "Most Popular C-Drama",
         "5848753831881965888" to "Indonesian Horror Stories",
-        "1,Latest" to "Movie Latest",
         "1,Latest,Animation" to "Animation",
     )
 
