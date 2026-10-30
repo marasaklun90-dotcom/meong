@@ -49,7 +49,7 @@ class AnichinTes : MainAPI() {
             if (items.isEmpty()) null else HomePageList(heading, items)
         }
 
-        return HomePageResponse(sections)
+        return newHomePageResponse(sections)
     }
 
     override suspend fun search(query: String): List<SearchResponse> {
