@@ -287,7 +287,6 @@ class MovieboxProvider : MainAPI() {
         "7736026911486755336" to "Western TV",
         "8624142774394406504" to "Most Popular C-Drama",
         "5848753831881965888" to "Indonesian Horror Stories",
-    "4516404531735022304" to "Anime Shows & Movies",
         "1,Latest" to "Movie Latest",
         "2,Latest" to "TVShow Latest",
     )
@@ -297,28 +296,7 @@ class MovieboxProvider : MainAPI() {
         request: MainPageRequest,
     ): HomePageResponse {
         val home = mutableListOf<SearchResponse>()
-
-        if (request.data == "4516404531735022304") {
-            val url = "$mobileAPIUrl/wefeed-mobile-bff/tab/ranking-list?tabId=0&categoryType=4516404531735022304&page=$page&perPage=28"
-            val token = getCachedToken()
-            val (brand, model) = randomBrandModel()
-            val headers = mapOf(
-                "user-agent" to "com.community.oneroom/50020088 (Linux; U; Android 13; en_US; $brand; Build/TQ3A.230901.001; Cronet/145.0.7582.0)",
-                "accept" to "application/json",
-                "content-type" to "application/json",
-                "x-client-token" to generateXClientToken(),
-                "x-tr-signature" to generateXTrSignature("GET", "application/json", "application/json", url),
-                "x-client-info" to """{"package_name":"com.community.oneroom","version_name":"3.0.13.0325.03","version_code":50020088,"os":"android","os_version":"13","device_id":"$deviceId","install_store":"ps","system_language":"en","net":"NETWORK_WIFI","region":"US","timezone":"Asia/Calcutta","sp_code":""}""",
-                "x-client-status" to "0",
-                "Authorization" to "Bearer $token"
-            )
-            val index = app.get(url, headers = headers).parsedSafe<Media>()?.data?.subjectList?.mapNotNull { item ->
-                val tags = item.genre?.split(",")?.map { it.trim() }
-                if (isNsfw(title = item.title, description = item.description, tags = tags) || isDubbedTitle(item.title) || isExcludedCategory(item.title, tags)) null
-                else item.toSearchResponse(this)
-            } ?: emptyList()
-            home.addAll(index)
-        } else if (!request.data.contains(",")) {
+        if (!request.data.contains(",")) {
             val url = "$mainAPIUrl/wefeed-h5api-bff/ranking-list/content?id=${request.data}&page=$page&perPage=12"
             val index = app.get(url).parsedSafe<Media>()?.data?.subjectList?.mapNotNull { item ->
                 val tags = item.genre?.split(",")?.map { it.trim() }
