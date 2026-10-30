@@ -9,5 +9,4 @@ include(
     "LayarAsia",
     "AnimeXin",
     "MovieBox",
-    "AnichinTes"
 )
