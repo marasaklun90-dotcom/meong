@@ -289,6 +289,7 @@ class MovieboxProvider : MainAPI() {
         "5848753831881965888" to "Indonesian Horror Stories",
         "1,Latest" to "Movie Latest",
         "2,Latest" to "TVShow Latest",
+        "1,Latest,Animation" to "Animation",
     )
 
     override suspend fun getMainPage(
@@ -311,13 +312,13 @@ class MovieboxProvider : MainAPI() {
                 "channelId" to params.first(),
                 "page" to page,
                 "perPage" to "28",
-                "sort" to params.last()
-            ).toJson().toRequestBody(RequestBodyTypes.JSON.toMediaTypeOrNull())
+                "sort" to params[1]
+            ).plus(if (params.size > 2) mapOf("genre" to params[2]) else emptyMap()).toJson().toRequestBody(RequestBodyTypes.JSON.toMediaTypeOrNull())
 
             val index = app.post("$mainAPIUrl/wefeed-h5api-bff/subject/filter", requestBody = body)
                 .parsedSafe<Media>()?.data?.items?.mapNotNull { item ->
                     val tags = item.genre?.split(",")?.map { it.trim() }
-                    if (isNsfw(title = item.title, description = item.description, tags = tags) || isAnimeOrAnimation(item.subjectType, tags) || isDubbedTitle(item.title) || isExcludedCategory(item.title, tags)) null
+                    if (isNsfw(title = item.title, description = item.description, tags = tags) || (params.size < 3 && isAnimeOrAnimation(item.subjectType, tags)) || isDubbedTitle(item.title) || isExcludedCategory(item.title, tags)) null
                     else item.toSearchResponse(this)
                 } ?: emptyList()
 
