@@ -82,14 +82,36 @@ class AnichinTes : MainAPI() {
     }
 
     override suspend fun load(url: String): LoadResponse {
-        val document = app.get(url).document
+        var pageUrl = url
+        var document = app.get(pageUrl).document
+
+        // Jika URL yang diterima adalah halaman episode,
+        // cari tautan menuju halaman serial.
+        if (document.selectFirst(".infox h1.entry-title") == null) {
+            val seriesTitle = document.selectFirst(
+                "h2[itemprop=partOfSeries]"
+            )?.text()?.trim()
+                ?: throw Exception("Judul serial tidak ditemukan")
+
+            val seriesUrl = document.select("a[href*=/series/]")
+                .firstOrNull {
+                    it.text().trim().equals(seriesTitle, true)
+                }?.attr("href")
+                ?: throw Exception("Tautan halaman serial tidak ditemukan")
+
+            pageUrl = seriesUrl
+            document = app.get(pageUrl).document
+        }
 
         val title = document.selectFirst(".infox h1.entry-title")
             ?.text()?.trim()
             ?: throw Exception("Judul anime tidak ditemukan")
 
         val poster = document.selectFirst(".thumbook .thumb img")?.let {
-            it.attr("data-src").ifBlank { it.attr("src") }
+            it.attr("data-src")
+                .ifBlank { it.attr("data-lazy-src") }
+                .ifBlank { it.attr("src") }
+                .takeIf { image -> image.startsWith("http") }
         }
 
         val description = document.selectFirst(".entry-content .mindesc")
@@ -111,10 +133,10 @@ class AnichinTes : MainAPI() {
 
         val episodes = document.select(".eplister ul li").mapNotNull { item ->
             val a = item.selectFirst("a") ?: return@mapNotNull null
-            val episodeTitle = item.selectFirst(".epl-title")?.text()?.trim()
-                ?: return@mapNotNull null
-            val episodeNumber = item.selectFirst(".epl-num")?.text()
-                ?.trim()?.toIntOrNull()
+            val episodeTitle = item.selectFirst(".epl-title")
+                ?.text()?.trim() ?: return@mapNotNull null
+            val episodeNumber = item.selectFirst(".epl-num")
+                ?.text()?.trim()?.toIntOrNull()
 
             newEpisode(a.attr("href")) {
                 name = episodeTitle
@@ -122,7 +144,7 @@ class AnichinTes : MainAPI() {
             }
         }
 
-        return newAnimeLoadResponse(title, url, TvType.Anime) {
+        return newAnimeLoadResponse(title, pageUrl, TvType.Anime) {
             posterUrl = poster
             plot = description
             tags = genres
@@ -130,8 +152,6 @@ class AnichinTes : MainAPI() {
             addEpisodes(DubStatus.Subbed, episodes)
         }
     }
-
-
 
     override suspend fun loadLinks(
         data: String,
