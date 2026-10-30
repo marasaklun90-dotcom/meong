@@ -1,4 +1,11 @@
 .gradle
 build/
 */build/
-local.properties
+local.properties# Temporary website inspection files
+/page.html
+/ids.txt
+/js.txt
+/index.*.css
+/anime-css.css
+*.bak
+*.backup
