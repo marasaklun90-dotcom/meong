@@ -283,21 +283,12 @@ class MovieboxProvider : MainAPI() {
     override val mainPage: List<MainPageData> = mainPageOf(
         "872031290915189720" to "Trending Now",
         "997144265920760504" to "Popular Movie",
-        "5283462032510044280" to "Latest Indonesian Drama",
-        "6528093688173053896" to "Trending Indonesian Movies",
         "4380734070238626200" to "K-Drama",
         "7736026911486755336" to "Western TV",
         "8624142774394406504" to "Most Popular C-Drama",
         "5848753831881965888" to "Indonesian Horror Stories",
-        "1164329479448281992" to "Thai-Drama",
-        "1,ForYou" to "Movie ForYou",
-        "1,Hottest" to "Movie Hottest",
         "1,Latest" to "Movie Latest",
-        "1,Rating" to "Movie Rating",
-        "2,ForYou" to "TVShow ForYou",
-        "2,Hottest" to "TVShow Hottest",
         "2,Latest" to "TVShow Latest",
-        "2,Rating" to "TVShow Rating",
     )
 
     override suspend fun getMainPage(
