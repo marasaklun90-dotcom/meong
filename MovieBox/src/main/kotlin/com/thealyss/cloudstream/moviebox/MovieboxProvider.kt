@@ -287,6 +287,7 @@ class MovieboxProvider : MainAPI() {
         "7736026911486755336" to "Western TV",
         "8624142774394406504" to "Most Popular C-Drama",
         "5848753831881965888" to "Indonesian Horror Stories",
+        "8614980535946986176" to "Horror Movies",
         "1,Latest" to "Movie Latest",
         "2,Latest" to "TVShow Latest",
         "1,Latest,Animation" to "Animation",
