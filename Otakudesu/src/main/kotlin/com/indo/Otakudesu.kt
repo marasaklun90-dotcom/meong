@@ -159,9 +159,10 @@ class Otakudesu : MainAPI() {
                     if (src.contains("desustream.net/dstream")) {
                         val video = app.get(src, headers = ua, referer = mainUrl).document
                             .selectFirst("source[src]")?.attr("src") ?: return@forEach
-                        callback(newExtractorLink(name, "Stream $label", video) {
+                        android.util.Log.d("OtakuMirror", "video=$video"); callback(newExtractorLink(name, "Stream $label", video) {
                             this.quality = quality
                             this.referer = src
+                            this.headers = ua
                         })
                     } else {
                         loadExtractor(src, data, subtitleCallback, callback)
