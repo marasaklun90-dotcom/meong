@@ -295,7 +295,7 @@ class Anichin : MainAPI() {
 
             ua.forEach { (format, qualities) ->
                 val fmt = format.toString()
-                if (fmt == "webm") return@forEach
+                if (fmt != "hls") return@forEach
                 val qMap = qualities as? Map<*, *> ?: return@forEach
                 qMap.forEach { (q, info) ->
                     val streamUrl = (info as? Map<*, *>)?.get("url")?.toString()
