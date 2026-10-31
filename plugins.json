@@ -1,0 +1,167 @@
+[
+    {
+        "iconUrl": "https://www.google.com/s2/favicons?domain=https://anichin.moe&sz=%size%",
+        "fileHash": "sha256-de029d1a0d9d63e35b483911b79ce3b7c03dc345e6f21ea02fc8f85e76c79b24",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/marasaklun90-dotcom/meong",
+        "fileSize": 36302,
+        "status": 1,
+        "language": "id",
+        "authors": [
+            "ExtremeBoy"
+        ],
+        "tvTypes": [
+            "Anime",
+            "AnimeMovie"
+        ],
+        "version": 2,
+        "internalName": "Anichin",
+        "url": "https://raw.githubusercontent.com/marasaklun90-dotcom/meong/builds/Anichin.cs3",
+        "name": "Anichin"
+    },
+    {
+        "iconUrl": "https://www.google.com/s2/favicons?domain=https://animexin.dev&sz=%size%",
+        "fileHash": "sha256-7758ed7c409290ec0e7dfaf6d7e29d4df0a33ac3593b77f0a27a01fe950d00d4",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/marasaklun90-dotcom/meong",
+        "fileSize": 27385,
+        "status": 1,
+        "language": "id",
+        "authors": [
+            "ExtremeBoy"
+        ],
+        "tvTypes": [
+            "Anime",
+            "AnimeMovie"
+        ],
+        "version": 1,
+        "internalName": "AnimeXin",
+        "url": "https://raw.githubusercontent.com/marasaklun90-dotcom/meong/builds/AnimeXin.cs3",
+        "name": "AnimeXin"
+    },
+    {
+        "iconUrl": "https://www.google.com/s2/favicons?domain=https://blurayufr.site&sz=%size%",
+        "fileHash": "sha256-21d41d8c25366b7b248646e74d9c80d0aed87ca069f95b6e4bee95aa26fd67b5",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/marasaklun90-dotcom/meong",
+        "fileSize": 29115,
+        "status": 1,
+        "language": "id",
+        "authors": [
+            "ExtremeBoy"
+        ],
+        "tvTypes": [
+            "Movie",
+            "TvSeries"
+        ],
+        "version": 1,
+        "internalName": "BlurayUFR",
+        "url": "https://raw.githubusercontent.com/marasaklun90-dotcom/meong/builds/BlurayUFR.cs3",
+        "name": "BlurayUFR"
+    },
+    {
+        "iconUrl": "https://www.google.com/s2/favicons?domain=https://server-1.layar.asia&sz=%size%",
+        "fileHash": "sha256-7f1727d3deb3bca210f60853b4c7bd30882bbd6cb8283b604c2254c07f978880",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/marasaklun90-dotcom/meong",
+        "fileSize": 40163,
+        "status": 1,
+        "language": "id",
+        "authors": [
+            "ExtremeBoy"
+        ],
+        "tvTypes": [
+            "Movie",
+            "TvSeries",
+            "AsianDrama"
+        ],
+        "version": 2,
+        "internalName": "LayarAsia",
+        "url": "https://raw.githubusercontent.com/marasaklun90-dotcom/meong/builds/LayarAsia.cs3",
+        "name": "LayarAsia"
+    },
+    {
+        "iconUrl": "https://www.google.com/s2/favicons?domain=https://tv.nontondrama.vip&sz=%size%",
+        "fileHash": "sha256-78c4477504e5495bfda67118fa434522344af92095b09c19208f2eb6a844f537",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/marasaklun90-dotcom/meong",
+        "fileSize": 37660,
+        "status": 1,
+        "language": "id",
+        "authors": [
+            "ExtremeBoy"
+        ],
+        "tvTypes": [
+            "TvSeries",
+            "Movie"
+        ],
+        "version": 8,
+        "internalName": "LK21",
+        "url": "https://raw.githubusercontent.com/marasaklun90-dotcom/meong/builds/LK21.cs3",
+        "name": "LK21"
+    },
+    {
+        "iconUrl": "https://movieboxph.app/wp-content/uploads/2025/11/Movie-Box-icon.webp",
+        "fileHash": "sha256-f8ae8c978eb42d6637c4afde4078b1bc28edf2c610b1fa776bd587f836aae157",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/marasaklun90-dotcom/meong",
+        "fileSize": 45743,
+        "status": 1,
+        "language": "id",
+        "authors": [
+            "TheAlyss"
+        ],
+        "tvTypes": [
+            "TvSeries",
+            "Movie",
+            "AsianDrama"
+        ],
+        "version": 9,
+        "internalName": "MovieBox",
+        "description": "MovieBox - Streaming Movie Subtitle Indonesia",
+        "url": "https://raw.githubusercontent.com/marasaklun90-dotcom/meong/builds/MovieBox.cs3",
+        "name": "MovieBox"
+    },
+    {
+        "iconUrl": "https://www.google.com/s2/favicons?domain=https://otakudesu.blog&sz=%size%",
+        "fileHash": "sha256-f0a84dd046dc0cf41d8dbb11ff2b71a3c6878d05c872a0dda5818c97937be062",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/marasaklun90-dotcom/meong",
+        "fileSize": 36813,
+        "status": 1,
+        "language": "id",
+        "authors": [
+            "ExtremeBoy"
+        ],
+        "tvTypes": [
+            "AnimeMovie",
+            "OVA",
+            "Anime"
+        ],
+        "version": 3,
+        "internalName": "Otakudesu",
+        "url": "https://raw.githubusercontent.com/marasaklun90-dotcom/meong/builds/Otakudesu.cs3",
+        "name": "Otakudesu"
+    },
+    {
+        "iconUrl": "https://www.google.com/s2/favicons?domain=https://x6.sokuja.uk&sz=%size%",
+        "fileHash": "sha256-61b025aed7446405d8dd06edfbc88a3b949f93f095735f2b7b4c03df878af813",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/marasaklun90-dotcom/meong",
+        "fileSize": 25242,
+        "status": 1,
+        "language": "id",
+        "authors": [
+            "ExtremeBoy"
+        ],
+        "tvTypes": [
+            "AnimeMovie",
+            "OVA",
+            "Anime"
+        ],
+        "version": 4,
+        "internalName": "Sokuja",
+        "url": "https://raw.githubusercontent.com/marasaklun90-dotcom/meong/builds/Sokuja.cs3",
+        "name": "Sokuja"
+    }
+]
