@@ -335,17 +335,20 @@ class BlurayUFR : MainAPI() {
                     type.contains("360") -> Qualities.P360.value
                     else -> Qualities.Unknown.value
                 }
+                val ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36"
+                val hdr = mapOf("User-Agent" to ua, "Referer" to "https://abyssplayer.com/")
+                val finalUrl = try {
+                    app.get(srcUrl, headers = hdr + ("Range" to "bytes=0-0")).url
+                } catch (_: Exception) { srcUrl }
                 val link = newExtractorLink(
                     "Abyss",
                     "Abyss $type",
-                    srcUrl,
+                    finalUrl,
                     type = ExtractorLinkType.VIDEO
                 ) {
                     this.quality = q
                     this.referer = "https://abyssplayer.com/"
-                    this.headers = mapOf(
-                        "Referer" to "https://abyssplayer.com/"
-                    )
+                    this.headers = hdr
                 }
                 parsedSources.add(Pair(link, q))
             }
