@@ -23,9 +23,9 @@ class Anichin : MainAPI() {
     )
 
     override val mainPage = mainPageOf(
-        "$mainUrl/" to "Popular Today",
+        "$mainUrl/" to "Populer",
+        "$mainUrl/" to "Latest",
         "$mainUrl/" to "Movie",
-        "$mainUrl/" to "Latest Release",
     )
 
     private fun parseItems(doc: Document, selector: String): List<SearchResponse> {
@@ -65,12 +65,13 @@ class Anichin : MainAPI() {
         ).document
 
         val selector = when (request.name) {
-            "Popular Today" ->
+            "Populer" ->
                 ".releases.hothome + .listupd article.bs, .popularslider article.bs"
             "Movie" ->
                 ".bixbox.bbnofrm:has(.releases h3:matchesOwn(^Movie$)) .listupd article.bs"
-            else ->
+            "Latest" ->
                 ".releases.latesthome + .listupd article.bs, .listupd.normal article.bs"
+            else -> return newHomePageResponse(request.name, emptyList())
         }
 
         val items = parseItems(doc, selector)
