@@ -112,11 +112,18 @@ class Kiblat21 : MainAPI() {
 
             val page = app.get(watchUrl, headers = headers)
             val html = page.text
+            println("KIBLAT21 DEBUG: Watch URL = $watchUrl")
+            println("KIBLAT21 DEBUG: HTML length = ${html.length}")
+            println("KIBLAT21 DEBUG: Vidzee found = ${html.contains("player.vidzee.wtf/embed")}")
 
             val idPattern = Regex(
                 """https://player\.vidzee\.wtf/embed/(movie|tv)/(\d+)(?:/(\d+)/(\d+))?"""
             )
-            val match = idPattern.find(html) ?: return false
+            val match = idPattern.find(html) ?: run {
+                println("KIBLAT21 DEBUG: ID Vidzee tidak ditemukan")
+                return false
+            }
+            println("KIBLAT21 DEBUG: ID Vidzee = ${match.value}")
 
             val type = match.groupValues[1]
             val tmdbId = match.groupValues[2]
