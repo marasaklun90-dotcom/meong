@@ -355,7 +355,10 @@ class KiblatFilm21 : MainAPI() {
                 )
             ).text
 
-            val enc = Regex("""const\s+datas\s*=\s*"([^"]*)"""").find(areq)?.groupValues?.getOrNull(1) ?: return false
+            val enc = Regex("""const\s+datas\s*=\s*"([^"]*)"""").find(areq)?.groupValues?.getOrNull(1) ?: run {
+                callback(newExtractorLink("Abyss", "DEBUG abyss: datas tidak ada, html=${areq.length}", "https://debug.invalid/", ExtractorLinkType.VIDEO) {})
+                return true
+            }
 
             extractAbyssSubtitles(enc, subtitleCallback)
 
@@ -392,8 +395,14 @@ class KiblatFilm21 : MainAPI() {
                 }
             }
 
-            if (result == null) return false
-            val sources = result.optJSONArray("sources") ?: return false
+            if (result == null) {
+                callback(newExtractorLink("Abyss", "DEBUG abyss: dekripsi gagal ${decRes.take(60)}", "https://debug.invalid/", ExtractorLinkType.VIDEO) {})
+                return true
+            }
+            val sources = result.optJSONArray("sources") ?: run {
+                callback(newExtractorLink("Abyss", "DEBUG abyss: tanpa sources ${result.toString().take(60)}", "https://debug.invalid/", ExtractorLinkType.VIDEO) {})
+                return true
+            }
 
             val parsedSources = mutableListOf<Pair<ExtractorLink, Int>>()
             for (i in 0 until sources.length()) {
@@ -430,8 +439,9 @@ class KiblatFilm21 : MainAPI() {
                 found = true
             }
             return found
-        } catch (_: Exception) {
-            return false
+        } catch (e: Exception) {
+            callback(newExtractorLink("Abyss", "DEBUG abyss exc: ${e.javaClass.simpleName} ${e.message?.take(60)}", "https://debug.invalid/", ExtractorLinkType.VIDEO) {})
+            return true
         }
     }
 
