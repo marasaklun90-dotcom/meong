@@ -236,33 +236,27 @@ class KiblatFilm21 : MainAPI() {
 
     private fun extractEmbeds(html: String): List<Pair<String, String>> {
         return try {
-            val pattern = Regex(
-                """\\?"embeds\\?"\s*:\s*(\[[\s\S]*?\])"""
-            )
-
-            val raw = pattern.find(html)?.groupValues?.get(1)
-                ?: return emptyList()
-
-            val normalized = raw
+            val decoded = html
+                .replace("\\\\\"", "\"")
                 .replace("\\\"", "\"")
                 .replace("\\u0026", "&")
+                .replace("\\\\/", "/")
                 .replace("\\/", "/")
 
-            val array = JSONArray(normalized)
-            val result = mutableListOf<Pair<String, String>>()
+            val pattern = Regex(
+                """"embeds"\s*:\s*(\[[\s\S]*?\])"""
+            )
 
-            for (i in 0 until array.length()) {
-                val item = array.optJSONObject(i) ?: continue
-                val server = item.optString("server")
-                    .ifBlank { "Server ${i + 1}" }
-                val playerUrl = item.optString("url")
+            val raw = pattern.find(decoded)?.groupValues?.get(1)
+                ?: return emptyList()
 
-                if (playerUrl.startsWith("http")) {
-                    result.add(server to playerUrl)
-                }
+            val array = JSONArray(raw)
+            (0 until array.length()).mapNotNull { i ->
+                val item = array.optJSONObject(i) ?: return@mapNotNull null
+                val server = item.optString("server").ifBlank { "Server ${i + 1}" }
+                val url = item.optString("url")
+                if (url.startsWith("http")) server to url else null
             }
-
-            result
         } catch (_: Exception) {
             emptyList()
         }
