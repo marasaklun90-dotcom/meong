@@ -484,12 +484,22 @@ override suspend fun loadLinks(
 
         val embeds = extractEmbeds(html)
         if (embeds.isEmpty()) {
-            callback(
-                newExtractorLink(
-                    name, "DEBUG embeds=0 html=${html.length} data=${data.takeLast(25)}",
-                    "https://debug.invalid/", ExtractorLinkType.VIDEO
-                ) {}
-            )
+            val terms = listOf("embeds", "iframe", "vidzee", "2embed", "vidlink", "videasy", "vidfast", "player", "server")
+            .joinToString(" ") { term ->
+                "$term=${Regex(Regex.escape(term), RegexOption.IGNORE_CASE).findAll(html).count()}"
+            }
+        val snippets = listOf("iframe", "vidzee", "player", "server", "watch")
+            .mapNotNull { term ->
+                val i = html.indexOf(term, ignoreCase = true)
+                if (i < 0) null else html.substring(maxOf(0, i - 100), minOf(html.length, i + 250)).replace(Regex("\\s+"), " ")
+            }.distinct().joinToString(" || ").take(700)
+
+        callback(
+            newExtractorLink(
+                name, "DEBUG html=${html.length} $terms $snippets",
+                "https://debug.invalid/", ExtractorLinkType.VIDEO
+            ) {}
+        )
             return true
         }
 
