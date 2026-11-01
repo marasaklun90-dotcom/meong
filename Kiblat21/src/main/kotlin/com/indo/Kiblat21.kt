@@ -5,6 +5,7 @@ import org.jsoup.nodes.Element
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.ExtractorLinkType
 import com.lagradost.cloudstream3.utils.Qualities
+import com.lagradost.cloudstream3.utils.loadExtractor
 import com.lagradost.cloudstream3.utils.newExtractorLink
 import org.json.JSONObject
 
@@ -110,74 +111,71 @@ class Kiblat21 : MainAPI() {
                 "${data.trimEnd('/')}/watch"
             }
 
-            val page = app.get(watchUrl, headers = headers)
-            val html = page.text
-            println("KIBLAT21 DEBUG: Watch URL = $watchUrl")
-            println("KIBLAT21 DEBUG: HTML length = ${html.length}")
-            println("KIBLAT21 DEBUG: HTML CONTENT = $html")
-            println("KIBLAT21 DEBUG: Vidzee found = ${html.contains("player.vidzee.wtf/embed")}")
+            val html = app.get(watchUrl, headers = headers).text
 
-            val idPattern = Regex(
-                """https://player\.vidzee\.wtf/embed/(movie|tv)/(\d+)(?:/(\d+)/(\d+))?"""
+            val embedPattern = Regex(
+                """(?s)["\\]server["\\]\s*:\s*["\\]([^"\\]+)["\\].{0,500}?["\\]url["\\]\s*:\s*["\\]([^"\\]+)["\\]"""
             )
-            val match = idPattern.find(html) ?: run {
-                println("KIBLAT21 DEBUG: ID Vidzee tidak ditemukan")
+
+            val embeds = embedPattern.findAll(html)
+                .mapNotNull { match ->
+                    val server = match.groupValues[1]
+                    val url = match.groupValues[2]
+                    if (url.startsWith("https://") || url.startsWith("http://")) {
+                        server to url
+                    } else {
+                        null
+                    }
+                }
+                .distinctBy { it.second }
+                .toList()
+
+            println("KIBLAT21: Watch HTML length = ${html.length}")
+            println("KIBLAT21: Jumlah server ditemukan = ${embeds.size}")
+
+            if (embeds.isEmpty()) {
+                println("KIBLAT21: Embed tidak ditemukan. Periksa akses halaman watch.")
                 return false
             }
-            println("KIBLAT21 DEBUG: ID Vidzee = ${match.value}")
 
-            val type = match.groupValues[1]
-            val tmdbId = match.groupValues[2]
+            var foundAny = false
 
-            val streamPath = if (type == "movie") {
-                "/streams/movie/$tmdbId"
-            } else {
-                val season = match.groupValues[3].ifBlank { "1" }
-                val episode = match.groupValues[4].ifBlank { "1" }
-                "/streams/tv/$tmdbId/$season/$episode"
-            }
+            for ((server, embedUrl) in embeds) {
+                try {
+                    println("KIBLAT21: Mencoba $server -> $embedUrl")
 
-            val playerHeaders = mapOf(
-                "Referer" to "https://player.vidzee.wtf/",
-                "User-Agent" to headers["User-Agent"].orEmpty()
-            )
-
-            var found = false
-            for (source in listOf("v6:Hindi", "v6:English")) {
-                val encodedSource = java.net.URLEncoder.encode(source, "UTF-8")
-                val apiUrl = "https://core.vidzee.wtf$streamPath?s=$encodedSource"
-                val response = app.get(apiUrl, headers = playerHeaders)
-                val json = JSONObject(response.text)
-                val streamUrl = json.optString("url")
-
-                if (streamUrl.isBlank()) continue
-
-                val streamHeaders = playerHeaders.toMutableMap()
-                val extraHeaders = json.optJSONObject("headers")
-                extraHeaders?.keys()?.forEach { key ->
-                    streamHeaders[key] = extraHeaders.optString(key)
-                }
-
-                val language = json.optString("language", source.substringAfter(":"))
-                callback(
-                    newExtractorLink(
-                        "Vidzee",
-                        "Vidzee $language",
-                        streamUrl,
-                        type = ExtractorLinkType.M3U8
-                    ) {
-                        this.quality = Qualities.P720.value
-                        this.referer = "https://player.vidzee.wtf/"
-                        this.headers = streamHeaders
+                    val loaded = loadExtractor(
+                        embedUrl,
+                        watchUrl,
+                        subtitleCallback
+                    ) { extracted ->
+                        val labeled = ExtractorLink(
+                            extracted.source,
+                            "$server - ${extracted.name}",
+                            extracted.url,
+                            extracted.referer,
+                            extracted.quality,
+                            extracted.headers,
+                            extracted.extractorData,
+                            extracted.type,
+                            extracted.audioTracks
+                        )
+                        callback(labeled)
                     }
-                )
-                found = true
-                break
+
+                    if (loaded) {
+                        foundAny = true
+                    }
+                } catch (e: Exception) {
+                    println("KIBLAT21: $server gagal: ${e.message}")
+                }
             }
-            found
+
+            foundAny
         } catch (e: Exception) {
-            println("Kiblat21 Vidzee error: ${e.message}")
+            println("KIBLAT21 loadLinks error: ${e.message}")
             false
         }
     }
+
 }

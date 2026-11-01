@@ -1,0 +1,32 @@
+
+> Configure project :
+WARNING: The option setting 'android.aapt2FromMavenOverride=/data/data/com.termux/files/usr/bin/aapt2' is experimental.
+
+> Task :Kiblat21:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :Kiblat21:preBuild UP-TO-DATE
+> Task :Kiblat21:preDebugBuild UP-TO-DATE
+> Task :Kiblat21:generateDebugResValues UP-TO-DATE
+> Task :Kiblat21:generateDebugResources UP-TO-DATE
+> Task :Kiblat21:packageDebugResources UP-TO-DATE
+> Task :Kiblat21:parseDebugLocalResources UP-TO-DATE
+> Task :Kiblat21:processDebugManifest UP-TO-DATE
+> Task :Kiblat21:generateDebugRFile UP-TO-DATE
+
+> Task :Kiblat21:compileDebugKotlin FAILED
+e: file:///data/data/com.termux/files/home/meong/Kiblat21/src/main/kotlin/com/indo/Kiblat21.kt:153:29 Suspension functions can only be called within coroutine body.
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':Kiblat21:compileDebugKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 6s
+6 actionable tasks: 1 executed, 5 up-to-date
