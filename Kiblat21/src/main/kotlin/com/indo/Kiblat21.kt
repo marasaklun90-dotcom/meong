@@ -104,7 +104,13 @@ class Kiblat21 : MainAPI() {
         callback: (ExtractorLink) -> Unit
     ): Boolean {
         return try {
-            val page = app.get(data, headers = headers)
+            val watchUrl = if (data.trimEnd('/').endsWith("/watch")) {
+                data
+            } else {
+                "${data.trimEnd('/')}/watch"
+            }
+
+            val page = app.get(watchUrl, headers = headers)
             val doc = page.document
 
             val pattern = Regex(
@@ -116,7 +122,6 @@ class Kiblat21 : MainAPI() {
                 .firstNotNullOfOrNull { src ->
                     pattern.find(src)?.value
                 } ?: pattern.find(page.text)?.value
-                  ?: pattern.find(data)?.value
                   ?: return false
 
             val match = pattern.find(iframeUrl) ?: return false
@@ -131,43 +136,45 @@ class Kiblat21 : MainAPI() {
                 "/streams/tv/$tmdbId/$season/$episode"
             }
 
-            val apiUrl = "https://core.vidzee.wtf$streamPath?s=v6%3AEnglish"
-            val response = app.get(
-                apiUrl,
-                headers = mapOf(
-                    "Referer" to "https://player.vidzee.wtf/",
-                    "User-Agent" to headers["User-Agent"].orEmpty()
-                )
-            )
-
-            val json = JSONObject(response.text)
-            val streamUrl = json.optString("url")
-            if (streamUrl.isBlank()) return false
-
-            val language = json.optString("language", "English")
-            val streamHeaders = mutableMapOf(
+            val playerHeaders = mapOf(
                 "Referer" to "https://player.vidzee.wtf/",
                 "User-Agent" to headers["User-Agent"].orEmpty()
             )
 
-            val extraHeaders = json.optJSONObject("headers")
-            extraHeaders?.keys()?.forEach { key ->
-                streamHeaders[key] = extraHeaders.optString(key)
+            var found = false
+
+            for (source in listOf("v6:Hindi", "v6:English")) {
+                val apiUrl = "https://core.vidzee.wtf$streamPath?s=${java.net.URLEncoder.encode(source, "UTF-8")}"
+                val response = app.get(apiUrl, headers = playerHeaders)
+                val json = JSONObject(response.text)
+                val streamUrl = json.optString("url")
+
+                if (streamUrl.isBlank()) continue
+
+                val streamHeaders = playerHeaders.toMutableMap()
+                json.optJSONObject("headers")?.keys()?.forEach { key ->
+                    streamHeaders[key] = json.optJSONObject("headers")?.optString(key).orEmpty()
+                }
+
+                val language = json.optString("language", source.substringAfter(":"))
+
+                callback(
+                    newExtractorLink(
+                        "Vidzee",
+                        "Vidzee $language",
+                        streamUrl,
+                        type = ExtractorLinkType.M3U8
+                    ) {
+                        this.quality = Qualities.P720.value
+                        this.referer = "https://player.vidzee.wtf/"
+                        this.headers = streamHeaders
+                    }
+                )
+                found = true
+                break
             }
 
-            callback(
-                newExtractorLink(
-                    "Vidzee",
-                    "Vidzee $language",
-                    streamUrl,
-                    type = ExtractorLinkType.M3U8
-                ) {
-                    this.quality = Qualities.P720.value
-                    this.referer = "https://player.vidzee.wtf/"
-                    this.headers = streamHeaders
-                }
-            )
-            true
+            found
         } catch (e: Exception) {
             println("Kiblat21 Vidzee error: ${e.message}")
             false
