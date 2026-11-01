@@ -510,6 +510,25 @@ class KiblatFilm21 : MainAPI() {
                             got = true
                             callback(link)
                         }
+                        if (!got) {
+                            val resp = app.get(
+                                playerUrl,
+                                referer = "$mainUrl/",
+                                interceptor = com.lagradost.cloudstream3.network.WebViewResolver(
+                                    Regex("""\.(m3u8|mp4)""")
+                                )
+                            )
+                            val u = resp.url
+                            if (u.contains(".m3u8") || u.contains(".mp4")) {
+                                callback(
+                                    newExtractorLink(
+                                        server, server, u,
+                                        if (u.contains(".m3u8")) ExtractorLinkType.M3U8 else ExtractorLinkType.VIDEO
+                                    ) { this.referer = playerUrl }
+                                )
+                                got = true
+                            }
+                        }
                         if (got) found = true
                     }
                 }
