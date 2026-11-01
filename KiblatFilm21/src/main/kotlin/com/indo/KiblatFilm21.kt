@@ -393,9 +393,15 @@ private suspend fun extractAbyss(
 
         var found = false
 
-        for (i in 0 until sources.length()) {
-            val src = sources.optJSONObject(i) ?: continue
-            if (!src.optBoolean("status", true)) continue
+        val orderedSources = (0 until sources.length())
+            .mapNotNull { sources.optJSONObject(it) }
+            .filter {
+                it.optString("file").startsWith("http") ||
+                (it.optInt("res_id", 99) < 5 && it.optBoolean("status", true))
+            }
+            .sortedByDescending { it.optInt("res_id") }
+
+        for (src in orderedSources) {
 
             val size = src.optString("size")
             val resId = src.optString("res_id")
