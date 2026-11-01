@@ -114,6 +114,7 @@ class Kiblat21 : MainAPI() {
             val html = page.text
             println("KIBLAT21 DEBUG: Watch URL = $watchUrl")
             println("KIBLAT21 DEBUG: HTML length = ${html.length}")
+            println("KIBLAT21 DEBUG: HTML CONTENT = $html")
             println("KIBLAT21 DEBUG: Vidzee found = ${html.contains("player.vidzee.wtf/embed")}")
 
             val idPattern = Regex(
