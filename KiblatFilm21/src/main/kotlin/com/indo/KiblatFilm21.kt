@@ -410,8 +410,8 @@ class KiblatFilm21 : MainAPI() {
                     else -> Qualities.Unknown.value
                 }
                 val link = newExtractorLink(
-                    "Hydrax",
-                    "Hydrax $type",
+                    "Abyss",
+                    "Abyss $type",
                     srcUrl,
                     type = ExtractorLinkType.VIDEO
                 ) {
