@@ -1,5 +1,6 @@
 package com.indo
 
+import com.lagradost.cloudstream3.network.WebViewResolver
 import com.lagradost.cloudstream3.*
 import org.jsoup.nodes.Element
 import com.lagradost.cloudstream3.utils.ExtractorLink
@@ -104,78 +105,50 @@ class Kiblat21 : MainAPI() {
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ): Boolean {
-        return try {
-            val watchUrl = if (data.trimEnd('/').endsWith("/watch")) {
-                data
-            } else {
-                "${data.trimEnd('/')}/watch"
-            }
-
-            val html = app.get(watchUrl, headers = headers).text
-
-            val embedPattern = Regex(
-                """(?s)["\\]server["\\]\s*:\s*["\\]([^"\\]+)["\\].{0,500}?["\\]url["\\]\s*:\s*["\\]([^"\\]+)["\\]"""
-            )
-
-            val embeds = embedPattern.findAll(html)
-                .mapNotNull { match ->
-                    val server = match.groupValues[1]
-                    val url = match.groupValues[2]
-                    if (url.startsWith("https://") || url.startsWith("http://")) {
-                        server to url
-                    } else {
-                        null
+        val watchUrl = if (data.trimEnd('/').endsWith("/watch")) data
+                       else "${data.trimEnd('/')}/watch"
+        val html = app.get(watchUrl, headers = headers).text
+            .replace("\\\"", "\"").replace("\\/", "/")
+        val embeds = Regex(""""server":"([^"]+)","url":"([^"]+)","blocked":(true|false)""")
+            .findAll(html)
+            .filter { it.groupValues[3] == "false" }
+            .map { it.groupValues[1] to it.groupValues[2] }
+            .distinctBy { it.second }
+            .toList()
+        println("KIBLAT21: server ditemukan = ${embeds.size}")
+        if (embeds.isEmpty()) return false
+        embeds.amap { (server, embedUrl) ->
+            try {
+                val target = if (embedUrl.contains("2embed.cc")) {
+                    val src = app.get(embedUrl, referer = watchUrl).document
+                        .selectFirst("iframe#iframesrc")?.attr("data-src")
+                    val id = src?.let {
+                        Regex("""[?&]id=([A-Za-z0-9]+)""").find(it)?.groupValues?.get(1)
                     }
-                }
-                .distinctBy { it.second }
-                .toList()
-
-            println("KIBLAT21: Watch HTML length = ${html.length}")
-            println("KIBLAT21: Jumlah server ditemukan = ${embeds.size}")
-
-            if (embeds.isEmpty()) {
-                println("KIBLAT21: Embed tidak ditemukan. Periksa akses halaman watch.")
-                return false
-            }
-
-            var foundAny = false
-
-            for ((server, embedUrl) in embeds) {
-                try {
-                    println("KIBLAT21: Mencoba $server -> $embedUrl")
-
-                    val loaded = loadExtractor(
+                    if (id != null) "https://2vcdn.skin/e/$id" else embedUrl
+                } else embedUrl
+                val ref = if (target.contains("2vcdn.skin"))
+                    "https://streamsrcs.2embed.cc/" else watchUrl
+                val ok = loadExtractor(target, ref, subtitleCallback, callback)
+                if (!ok) {
+                    val m3u8 = app.get(
                         embedUrl,
-                        watchUrl,
-                        subtitleCallback
-                    ) { extracted ->
-                        val labeled = ExtractorLink(
-                            extracted.source,
-                            "$server - ${extracted.name}",
-                            extracted.url,
-                            extracted.referer,
-                            extracted.quality,
-                            extracted.headers,
-                            extracted.extractorData,
-                            extracted.type,
-                            extracted.audioTracks
+                        referer = watchUrl,
+                        interceptor = WebViewResolver(Regex("""\.m3u8"""))
+                    ).url
+                    if (m3u8.contains(".m3u8")) {
+                        callback(
+                            newExtractorLink(server, server, m3u8, ExtractorLinkType.M3U8) {
+                                this.referer = embedUrl
+                                this.quality = Qualities.Unknown.value
+                            }
                         )
-                        callback(labeled)
                     }
-
-                    if (loaded) {
-                        foundAny = true
-                    }
-                } catch (e: Exception) {
-                    println("KIBLAT21: $server gagal: ${e.message}")
                 }
+            } catch (e: Exception) {
+                println("KIBLAT21: $server gagal: ${e.message}")
             }
-
-            foundAny
-        } catch (e: Exception) {
-            println("KIBLAT21 loadLinks error: ${e.message}")
-            false
         }
+        return true
     }
-
 }
