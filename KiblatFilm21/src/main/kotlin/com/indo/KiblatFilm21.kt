@@ -83,18 +83,37 @@ class KiblatFilm21 : MainAPI() {
         page: Int,
         request: MainPageRequest
     ): HomePageResponse {
-        val url = if (page <= 1) {
-            mainUrl
-        } else {
-            "$mainUrl/page/$page"
+        val doc = app.get(mainUrl, headers = headers).document
+
+        val categories = listOf(
+            "Film Indonesia",
+            "Film Terbaru",
+            "Serial TV Terbaru",
+            "Anime",
+            "Drama Korea",
+            "Drama China",
+            "Horor"
+        )
+
+        val homePageLists = categories.mapNotNull { category ->
+            val section = doc.select("section.cv-row").firstOrNull {
+                it.selectFirst(".content-row-header__title")
+                    ?.text()
+                    ?.trim() == category
+            } ?: return@mapNotNull null
+
+            val items = section.select("a.content-card")
+                .mapNotNull { toSearchResponse(it) }
+                .distinctBy { it.url }
+
+            if (items.isEmpty()) {
+                null
+            } else {
+                HomePageList(category, items)
+            }
         }
 
-        val doc = app.get(url, headers = headers).document
-        val items = doc.select("a.content-card")
-            .mapNotNull { toSearchResponse(it) }
-            .distinctBy { it.url }
-
-        return newHomePageResponse(request.name, items)
+        return newHomePageResponse(homePageLists)
     }
 
     override suspend fun search(query: String): List<SearchResponse> {
