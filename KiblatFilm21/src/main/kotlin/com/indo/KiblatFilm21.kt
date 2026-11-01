@@ -448,12 +448,26 @@ class KiblatFilm21 : MainAPI() {
 
         val html = try {
             app.get(data, headers = reqHeaders).text
-        } catch (_: Exception) {
-            return false
+        } catch (e: Exception) {
+            callback(
+                newExtractorLink(
+                    name, "DEBUG get gagal: ${e.javaClass.simpleName} ${e.message?.take(60)}",
+                    "https://debug.invalid/", ExtractorLinkType.VIDEO
+                ) {}
+            )
+            return true
         }
 
         val embeds = extractEmbeds(html)
-        if (embeds.isEmpty()) return false
+        if (embeds.isEmpty()) {
+            callback(
+                newExtractorLink(
+                    name, "DEBUG embeds=0 html=${html.length} data=${data.takeLast(25)}",
+                    "https://debug.invalid/", ExtractorLinkType.VIDEO
+                ) {}
+            )
+            return true
+        }
 
         var found = false
 
