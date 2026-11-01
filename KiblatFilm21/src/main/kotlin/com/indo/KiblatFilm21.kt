@@ -2,8 +2,13 @@ package com.indo
 
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.ExtractorLink
+import com.lagradost.cloudstream3.utils.ExtractorLinkType
+import com.lagradost.cloudstream3.utils.Qualities
+import com.lagradost.cloudstream3.utils.newExtractorLink
+import com.lagradost.nicehttp.JsonAsString
 import com.lagradost.cloudstream3.utils.loadExtractor
 import org.json.JSONArray
+import org.json.JSONObject
 import org.jsoup.nodes.Element
 import java.net.URLEncoder
 
@@ -263,20 +268,194 @@ class KiblatFilm21 : MainAPI() {
         }
     }
 
+    private fun sanitizeAbyssPayload(enc: String): String? {
+        return try {
+            val rawBytes = android.util.Base64.decode(enc, android.util.Base64.DEFAULT)
+            val rawJsonStr = String(rawBytes, Charsets.ISO_8859_1)
+            val json = JSONObject(rawJsonStr)
+            val userId = json.optString("user_id")
+            val slug = json.optString("slug")
+            val md5Id = json.optString("md5_id")
+            val mediaStr = json.optString("media")
+            if (userId.isBlank() || slug.isBlank() || md5Id.isBlank() || mediaStr.isBlank()) return null
+
+            val keyStr = "$userId:$slug:$md5Id"
+            val md5 = java.security.MessageDigest.getInstance("MD5").digest(keyStr.toByteArray(Charsets.UTF_8))
+            val md5Hex = md5.joinToString("") { "%02x".format(it) }
+            val keyBytes = md5Hex.toByteArray(Charsets.UTF_8)
+            val ivBytes = keyBytes.copyOfRange(0, 16)
+
+            val mediaBytes = ByteArray(mediaStr.length) { mediaStr[it].code.toByte() }
+            val cipher = javax.crypto.Cipher.getInstance("AES/CTR/NoPadding")
+            val keySpec = javax.crypto.spec.SecretKeySpec(keyBytes, "AES")
+            val ivSpec = javax.crypto.spec.IvParameterSpec(ivBytes)
+            cipher.init(javax.crypto.Cipher.DECRYPT_MODE, keySpec, ivSpec)
+            val decryptedBytes = cipher.doFinal(mediaBytes)
+            val decryptedJsonStr = String(decryptedBytes, Charsets.UTF_8)
+
+            val mediaObj = JSONObject(decryptedJsonStr)
+            val mp4 = mediaObj.optJSONObject("mp4") ?: return null
+            val sources = mp4.optJSONArray("sources") ?: return null
+            val newSources = org.json.JSONArray()
+            for (i in 0 until sources.length()) {
+                val src = sources.optJSONObject(i) ?: continue
+                if (src.has("sub") && src.optString("sub").isNotBlank()) {
+                    newSources.put(src)
+                }
+            }
+            mp4.put("sources", newSources)
+
+            val newMediaStr = mediaObj.toString()
+            cipher.init(javax.crypto.Cipher.ENCRYPT_MODE, keySpec, ivSpec)
+            val reEncryptedBytes = cipher.doFinal(newMediaStr.toByteArray(Charsets.UTF_8))
+            val reEncryptedBin = StringBuilder(reEncryptedBytes.size)
+            for (b in reEncryptedBytes) {
+                reEncryptedBin.append((b.toInt() and 0xFF).toChar())
+            }
+            json.put("media", reEncryptedBin.toString())
+            val finalJsonBytes = json.toString().toByteArray(Charsets.ISO_8859_1)
+            android.util.Base64.encodeToString(finalJsonBytes, android.util.Base64.NO_WRAP)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private suspend fun extractAbyssSubtitles(enc: String, subtitleCallback: (SubtitleFile) -> Unit) {
+        try {
+            val rawBytes = android.util.Base64.decode(enc, android.util.Base64.DEFAULT)
+            val rawJsonStr = String(rawBytes, Charsets.ISO_8859_1)
+            val json = JSONObject(rawJsonStr)
+            val md5Id = json.optString("md5_id")
+            if (md5Id.isBlank()) return
+
+            val subs = json.optJSONObject("config")?.optJSONArray("subtitles") ?: return
+            for (i in 0 until subs.length()) {
+                val subObj = subs.optJSONObject(i) ?: continue
+                val subSlug = subObj.optString("slug")
+                if (subSlug.isBlank()) continue
+                val subType = subObj.optString("type", "srt").ifBlank { "srt" }
+                val rawLang = subObj.optString("lang", "id").ifBlank { "id" }
+                val langLabel = when (rawLang.lowercase()) {
+                    "id", "ind", "indonesian", "indonesia" -> "Indonesian"
+                    "en", "eng", "english" -> "English"
+                    "ms", "may", "malay" -> "Malay"
+                    else -> rawLang
+                }
+                val subUrl = "https://cdn.iamcdn.net/subtitle/$md5Id/$subSlug.$subType"
+                subtitleCallback(newSubtitleFile(langLabel, subUrl))
+            }
+        } catch (_: Exception) {
+        }
+    }
+
+    private suspend fun extractHydrax(
+        embedUrl: String,
+        playerUrl: String,
+        subtitleCallback: (SubtitleFile) -> Unit,
+        callback: (ExtractorLink) -> Unit
+    ): Boolean {
+        try {
+            val areq = app.get(
+                embedUrl,
+                headers = mapOf(
+                    "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
+                    "Referer" to playerUrl
+                )
+            ).text
+
+            val enc = Regex("""const\s+datas\s*=\s*"([^"]*)"""").find(areq)?.groupValues?.getOrNull(1) ?: return false
+
+            extractAbyssSubtitles(enc, subtitleCallback)
+
+            val jsonPayload = JSONObject().put("text", enc).toString()
+            var decRes = app.post(
+                "https://enc-dec.app/api/dec-abyss",
+                headers = mapOf(
+                    "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
+                    "Content-Type" to "application/json",
+                    "Origin" to "https://playhydrax.com",
+                    "Referer" to "https://playhydrax.com/"
+                ),
+                json = JsonAsString(jsonPayload)
+            ).text
+
+            var decJson = JSONObject(decRes)
+            var result = decJson.optJSONObject("result")
+            if (result == null || decJson.optInt("status") != 200) {
+                val sanitizedEnc = sanitizeAbyssPayload(enc)
+                if (sanitizedEnc != null) {
+                    val sanitizedPayload = JSONObject().put("text", sanitizedEnc).toString()
+                    decRes = app.post(
+                        "https://enc-dec.app/api/dec-abyss",
+                        headers = mapOf(
+                            "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
+                            "Content-Type" to "application/json",
+                            "Origin" to "https://playhydrax.com",
+                            "Referer" to "https://playhydrax.com/"
+                        ),
+                        json = JsonAsString(sanitizedPayload)
+                    ).text
+                    decJson = JSONObject(decRes)
+                    result = decJson.optJSONObject("result")
+                }
+            }
+
+            if (result == null) return false
+            val sources = result.optJSONArray("sources") ?: return false
+
+            val parsedSources = mutableListOf<Pair<ExtractorLink, Int>>()
+            for (i in 0 until sources.length()) {
+                val srcObj = sources.optJSONObject(i) ?: continue
+                if (!srcObj.optBoolean("status", true)) continue
+                val srcUrl = srcObj.optString("url")
+                if (srcUrl.isBlank() || !srcUrl.startsWith("http")) continue
+                val type = srcObj.optString("type")
+                val q = when {
+                    type.contains("1080") -> Qualities.P1080.value
+                    type.contains("720") -> Qualities.P720.value
+                    type.contains("480") -> Qualities.P480.value
+                    type.contains("360") -> Qualities.P360.value
+                    else -> Qualities.Unknown.value
+                }
+                val link = newExtractorLink(
+                    "Hydrax",
+                    "Hydrax $type",
+                    srcUrl,
+                    type = ExtractorLinkType.VIDEO
+                ) {
+                    this.quality = q
+                    this.referer = "https://abyssplayer.com/"
+                    this.headers = mapOf(
+                        "Referer" to "https://abyssplayer.com/"
+                    )
+                }
+                parsedSources.add(Pair(link, q))
+            }
+
+            var found = false
+            parsedSources.sortedByDescending { it.second }.forEach { (link, _) ->
+                callback(link)
+                found = true
+            }
+            return found
+        } catch (_: Exception) {
+            return false
+        }
+    }
+
     override suspend fun loadLinks(
         data: String,
         isCasting: Boolean,
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ): Boolean {
-
-        val pageHeaders = mapOf(
+        val reqHeaders = mapOf(
             "User-Agent" to userAgent,
             "Referer" to "$mainUrl/"
         )
 
         val html = try {
-            app.get(data, headers = pageHeaders).text
+            app.get(data, headers = reqHeaders).text
         } catch (_: Exception) {
             return false
         }
@@ -286,15 +465,55 @@ class KiblatFilm21 : MainAPI() {
 
         var found = false
 
-        for ((server, playerUrl) in embeds) {
+        for ((server, rawUrl) in embeds) {
+            val playerUrl = absoluteUrl(rawUrl)
+
             try {
-                loadExtractor(
-                    playerUrl,
-                    data,
-                    subtitleCallback,
-                    callback
-                )
-                found = true
+                val match = Regex("""/iframe3/([^/]+)/([^/?&]+)""")
+                    .find(playerUrl)
+
+                if (match != null) {
+                    val host = match.groupValues[1]
+                    val id = match.groupValues[2]
+
+                    val postRes = app.post(
+                        "https://videonode.de/api.php",
+                        headers = mapOf(
+                            "User-Agent" to userAgent,
+                            "Content-Type" to "application/x-www-form-urlencoded",
+                            "Referer" to playerUrl,
+                            "Origin" to "https://videonode.de"
+                        ),
+                        data = mapOf("host" to host, "id" to id)
+                    ).text
+
+                    val embedUrl = JSONObject(postRes).optString("embedUrl")
+
+                    if (embedUrl.isNotBlank()) {
+                        if (
+                            host.equals("hydrax", true) ||
+                            embedUrl.contains("abyssplayer", true) ||
+                            embedUrl.contains("playhydrax", true)
+                        ) {
+                            if (extractHydrax(
+                                embedUrl, playerUrl,
+                                subtitleCallback, callback
+                            )) found = true
+                        } else {
+                            loadExtractor(
+                                embedUrl, playerUrl,
+                                subtitleCallback, callback
+                            )
+                            found = true
+                        }
+                    }
+                } else {
+                    loadExtractor(
+                        playerUrl, data,
+                        subtitleCallback, callback
+                    )
+                    found = true
+                }
             } catch (_: Exception) {
                 // Lewati server yang gagal.
             }
