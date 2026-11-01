@@ -26,23 +26,32 @@ class Kiblat21 : MainAPI() {
     )
 
     private fun toSearchResult(element: Element): SearchResponse? {
-        val link = element.selectFirst("a[href*='/movie/'], a[href*='/tv/']") ?: return null
-        val href = fixUrlNull(link.attr("href")) ?: return null
-        val title = (
-            element.selectFirst("h2, h3")?.text()
-                ?: link.attr("title").ifBlank {
-                    link.selectFirst("img")?.attr("alt").orEmpty()
-                }
-            ).trim()
+        val link = if (element.tagName() == "a") element
+            else element.selectFirst("a.content-card[href*='/movie/'], a.content-card[href*='/series/']")
+                ?: return null
 
-        if (title.isBlank()) return null
+        val href = fixUrlNull(link.attr("href")) ?: return null
+        val title = link.selectFirst("img")?.attr("alt")?.trim()
+            ?.takeIf { it.isNotBlank() }
+            ?: link.attr("title").trim().takeIf { it.isNotBlank() }
+            ?: return null
 
         val poster = link.selectFirst("img")?.let {
-            fixUrlNull(it.attr("src").ifBlank { it.attr("data-src") })
+            fixUrlNull(
+                it.attr("src").ifBlank {
+                    it.attr("data-src")
+                }
+            )
         }
 
-        return newMovieSearchResponse(title, href, TvType.Movie) {
-            this.posterUrl = poster
+        return if (href.contains("/series/")) {
+            newTvSeriesSearchResponse(title, href) {
+                this.posterUrl = poster
+            }
+        } else {
+            newMovieSearchResponse(title, href, TvType.Movie) {
+                this.posterUrl = poster
+            }
         }
     }
 
@@ -50,9 +59,15 @@ class Kiblat21 : MainAPI() {
         page: Int,
         request: MainPageRequest
     ): HomePageResponse {
-        val url = if (page <= 1) mainUrl else "$mainUrl/page/$page"
-        val doc = app.get(url, headers = headers).document
-        val items = doc.select("article, .movie-item, .film-item, .item")
+        val doc = app.get(mainUrl, headers = headers).document
+
+        val section = doc.select(".cv-row").firstOrNull {
+            it.selectFirst(".content-row-header__title")?.text()
+                ?.equals(request.name, ignoreCase = true) == true
+        }
+
+        val items = (section?.select("a.content-card")
+            ?: doc.select(".cv-row a.content-card"))
             .mapNotNull { toSearchResult(it) }
             .distinctBy { it.url }
 
@@ -63,8 +78,9 @@ class Kiblat21 : MainAPI() {
         val encoded = java.net.URLEncoder.encode(query.trim(), "UTF-8")
         val doc = app.get("$mainUrl/search?q=$encoded", headers = headers).document
 
-        return doc.select("article, .movie-item, .film-item, .item")
-            .mapNotNull { toSearchResult(it) }
+        return doc.select(
+            "a.content-card[href*='/movie/'], a.content-card[href*='/series/']"
+        ).mapNotNull { toSearchResult(it) }
             .distinctBy { it.url }
     }
 
