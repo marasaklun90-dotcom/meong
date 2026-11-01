@@ -546,11 +546,26 @@ class KiblatFilm21 : MainAPI() {
                         if (got) found = true
                     }
                 }
-            } catch (_: Exception) {
-                // Lewati server yang gagal.
+            } catch (e: Exception) {
+                callback(
+                    newExtractorLink(
+                        name, "DEBUG $server: ${e.javaClass.simpleName} ${e.message?.take(50)}",
+                        "https://debug.invalid/", ExtractorLinkType.VIDEO
+                    ) {}
+                )
+                found = true
             }
         }
 
+        if (!found) {
+            callback(
+                newExtractorLink(
+                    name, "DEBUG semua server kosong (embeds=${embeds.size})",
+                    "https://debug.invalid/", ExtractorLinkType.VIDEO
+                ) {}
+            )
+            found = true
+        }
         return found
     }
 }
