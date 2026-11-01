@@ -9,3 +9,7 @@ local.properties# Temporary website inspection files
 /anime-css.css
 *.bak
 *.backup
+*.bak
+page.html
+abyss.html
+dec.json

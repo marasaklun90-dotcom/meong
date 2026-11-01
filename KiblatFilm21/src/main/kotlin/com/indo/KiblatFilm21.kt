@@ -293,9 +293,7 @@ class KiblatFilm21 : MainAPI() {
             val newSources = org.json.JSONArray()
             for (i in 0 until sources.length()) {
                 val src = sources.optJSONObject(i) ?: continue
-                if (src.has("sub") && src.optString("sub").isNotBlank()) {
-                    newSources.put(src)
-                }
+                newSources.put(src)
             }
             mp4.put("sources", newSources)
 
@@ -502,11 +500,18 @@ class KiblatFilm21 : MainAPI() {
                         }
                     }
                 } else {
-                    loadExtractor(
-                        playerUrl, data,
-                        subtitleCallback, callback
-                    )
-                    found = true
+                    if (playerUrl.contains("abyssplayer", true) ||
+                        playerUrl.contains("playhydrax", true)
+                    ) {
+                        if (extractHydrax(playerUrl, data, subtitleCallback, callback)) found = true
+                    } else {
+                        var got = false
+                        loadExtractor(playerUrl, data, subtitleCallback) { link ->
+                            got = true
+                            callback(link)
+                        }
+                        if (got) found = true
+                    }
                 }
             } catch (_: Exception) {
                 // Lewati server yang gagal.
