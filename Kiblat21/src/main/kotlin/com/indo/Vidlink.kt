@@ -41,10 +41,16 @@ class Vidlink : ExtractorApi() {
                 if (h != null) for (hk in h.keys()) hm[hk] = h.optString(hk)
                 callback(newExtractorLink(name, "$name ${k}p", u, type = ExtractorLinkType.VIDEO) {
                     this.quality = k.toIntOrNull() ?: 0
-                    this.referer = hm.entries.firstOrNull {
+                    val apiReferer = hm.entries.firstOrNull {
                         it.key.equals("Referer", ignoreCase = true)
-                    }?.value ?: "https://vidlink.pro/"
-                    this.headers = mapOf("User-Agent" to ua) + hm
+                    }?.value
+
+                    this.referer = apiReferer ?: "https://vidlink.pro/"
+
+                    this.headers = mapOf(
+                        "User-Agent" to ua,
+                        "Referer" to this.referer
+                    ) + hm
                 })
             }
         }
