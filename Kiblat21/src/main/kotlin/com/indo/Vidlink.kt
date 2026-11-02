@@ -26,8 +26,16 @@ class Vidlink : ExtractorApi() {
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ) {
-        val id = Regex("""/movie/(\d+)""")
-            .find(url)?.groupValues?.get(1) ?: return
+        val movieId = Regex("""/movie/(\d+)""")
+            .find(url)?.groupValues?.get(1)
+
+        val tvMatch = Regex("""/tv/(\d+)/(\d+)/(\d+)""")
+            .find(url)
+
+        val id = movieId ?: tvMatch?.groupValues?.get(1) ?: return
+
+        val season = tvMatch?.groupValues?.get(2)
+        val episode = tvMatch?.groupValues?.get(3)
 
         val encResponse = app.get(
             "https://enc-dec.app/api/enc-vidlink?text=$id"
@@ -37,7 +45,11 @@ class Vidlink : ExtractorApi() {
         if (enc.isBlank()) return
 
         val response = app.get(
-            "https://vidlink.pro/api/b/movie/$enc?multiLang=0",
+            if (movieId != null) {
+                "https://vidlink.pro/api/b/movie/$enc?multiLang=0"
+            } else {
+                "https://vidlink.pro/api/b/tv/$enc/$season/$episode?multiLang=0"
+            },
             headers = mapOf(
                 "User-Agent" to ua,
                 "Origin" to mainUrl,
