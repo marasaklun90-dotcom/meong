@@ -41,8 +41,10 @@ class Vidlink : ExtractorApi() {
                 if (h != null) for (hk in h.keys()) hm[hk] = h.optString(hk)
                 callback(newExtractorLink(name, "$name ${k}p", u, type = ExtractorLinkType.VIDEO) {
                     this.quality = k.toIntOrNull() ?: 0
-                    this.referer = "https://filmboom.top/"
-                    this.headers = mapOf("User-Agent" to ua)
+                    this.referer = hm.entries.firstOrNull {
+                        it.key.equals("Referer", ignoreCase = true)
+                    }?.value ?: "https://vidlink.pro/"
+                    this.headers = mapOf("User-Agent" to ua) + hm
                 })
             }
         }
