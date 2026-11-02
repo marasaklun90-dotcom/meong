@@ -24,7 +24,22 @@ class TwoVCdn : ExtractorApi() {
             referer = "https://streamsrcs.2embed.cc/",
             headers = mapOf("User-Agent" to "Mozilla/5.0")
         ).text
-        val script = try { getAndUnpack(res) } catch (e: Exception) { res }
+        val packed = Regex(
+            """(?s)eval\s*\(\s*function\s*\(.*?</script>"""
+        ).find(res)?.value
+            ?.substringBefore("</script>")
+            ?: ""
+
+        val script = if (packed.isNotBlank()) {
+            try {
+                getAndUnpack(packed)
+            } catch (e: Exception) {
+                println("KIBLAT21 2Embed: unpack gagal: ${e.message}")
+                res
+            }
+        } else {
+            res
+        }
         val m3u8 = Regex("""https?://[^"'\\\s]+\.m3u8[^"'\\\s]*""")
             .find(script)?.value
             ?: Regex("""https?://[^"'\\\s]+\.m3u8[^"'\\\s]*""").find(res)?.value
