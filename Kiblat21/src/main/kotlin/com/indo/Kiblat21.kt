@@ -120,11 +120,48 @@ class Kiblat21 : MainAPI() {
             .distinctBy { it.url }
     }
 
+
     override suspend fun load(url: String): LoadResponse {
         val doc = app.get(url, headers = headers).document
         val title = doc.selectFirst("h1")?.text()?.trim() ?: "Kiblat21"
         val poster = doc.selectFirst("meta[property=og:image]")?.attr("content")
         val plot = doc.selectFirst("meta[property=og:description]")?.attr("content")
+
+        if (url.contains("/series/")) {
+            val episodeRegex = Regex(
+                """/season/(\d+)/episode/(\d+)"""
+            )
+
+            val episodes = doc.select("a[href*='/season/'][href*='/episode/']")
+                .mapNotNull { element ->
+                    val href = fixUrl(element.attr("href"))
+                    val match = episodeRegex.find(href) ?: return@mapNotNull null
+
+                    val seasonNumber = match.groupValues[1].toIntOrNull()
+                        ?: return@mapNotNull null
+                    val episodeNumber = match.groupValues[2].toIntOrNull()
+                        ?: return@mapNotNull null
+
+                    Triple(seasonNumber, episodeNumber, href)
+                }
+                .distinctBy { it.first to it.second }
+                .sortedWith(
+                    compareBy<Triple<Int, Int, String>> { it.first }
+                        .thenBy { it.second }
+                )
+                .map { (seasonNumber, episodeNumber, href) ->
+                    newEpisode(href) {
+                        this.name = "Episode $episodeNumber"
+                        this.season = seasonNumber
+                        this.episode = episodeNumber
+                    }
+                }
+
+            return newTvSeriesLoadResponse(title, url, TvType.TvSeries, episodes) {
+                this.posterUrl = poster
+                this.plot = plot
+            }
+        }
 
         return newMovieLoadResponse(title, url, TvType.Movie, url) {
             this.posterUrl = poster
@@ -140,12 +177,26 @@ class Kiblat21 : MainAPI() {
         callback: (ExtractorLink) -> Unit
     ): Boolean {
         val watchUrl = if (data.trimEnd('/').endsWith("/watch")) data else "${data.trimEnd('/')}/watch"
-        val html = app.get(watchUrl, headers = mapOf("User-Agent" to "Mozilla/5.0")).text
-            .replace("\\\"", "\"").replace("\\/", "/")
-        val embeds = Regex(""""server":"([^"]+)","url":"([^"]+)","blocked":(true|false)""")
-            .findAll(html).filter { it.groupValues[3] == "false" }
+        val rawHtml = app.get(
+            watchUrl,
+            headers = mapOf("User-Agent" to "Mozilla/5.0")
+        ).text
+
+        val html = rawHtml
+            .replace("\\\\\"", "\"")
+            .replace("\\\"", "\"")
+            .replace("\\/", "/")
+
+        val embeds = Regex(
+            """"server"\s*:\s*"([^"]+)"\s*,\s*"url"\s*:\s*"([^"]+)"\s*,\s*"blocked"\s*:\s*(true|false)"""
+        ).findAll(html)
+            .filter { it.groupValues[3] == "false" }
             .map { it.groupValues[1] to it.groupValues[2] }
-            .distinctBy { it.second }.toList()
+            .distinctBy { it.second }
+            .toList()
+
+        println("KIBLAT21: ditemukan ${embeds.size} embed")
+
         val total = java.util.concurrent.atomic.AtomicInteger(0)
         embeds.amap { (server, embedUrl) ->
             val found = java.util.Collections.synchronizedList(mutableListOf<ExtractorLink>())
