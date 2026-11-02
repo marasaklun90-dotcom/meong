@@ -9,5 +9,6 @@ class Kiblat21Plugin : Plugin() {
     override fun load(context: Context) {
         registerMainAPI(Kiblat21())
         registerExtractorAPI(TwoVCdn())
+        registerExtractorAPI(Abyss())
     }
 }
