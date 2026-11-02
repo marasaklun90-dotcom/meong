@@ -176,7 +176,16 @@ class Kiblat21 : MainAPI() {
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ): Boolean {
-        val watchUrl = if (data.trimEnd('/').endsWith("/watch")) data else "${data.trimEnd('/')}/watch"
+        val watchUrl = if (
+            data.contains("/series/") &&
+            data.contains("/episode/")
+        ) {
+            data.trimEnd('/')
+        } else if (data.trimEnd('/').endsWith("/watch")) {
+            data
+        } else {
+            "${data.trimEnd('/')}/watch"
+        }
         val rawHtml = app.get(
             watchUrl,
             headers = mapOf("User-Agent" to "Mozilla/5.0")
