@@ -27,21 +27,44 @@ class Kiblat21 : MainAPI() {
     )
 
     override val mainPage = mainPageOf(
-        "$mainUrl" to "Film Terbaru"
+        "$mainUrl" to "Sorotan",
+        "$mainUrl" to "Lagi Tren Sekarang",
+        "$mainUrl" to "Film Indonesia",
+        "$mainUrl" to "Film Terbaru",
+        "$mainUrl" to "Serial TV Terbaru",
+        "$mainUrl" to "Anime",
+        "$mainUrl" to "Drama Korea",
+        "$mainUrl" to "Drama China",
+        "$mainUrl" to "Horor"
     )
 
     private fun toSearchResult(element: Element): SearchResponse? {
         val link = if (element.tagName() == "a") element
-            else element.selectFirst("a.content-card[href*='/movie/'], a.content-card[href*='/series/']")
-                ?: return null
+            else element.selectFirst(
+                "a.content-card[href], a.sorot-kartu[href]"
+            ) ?: return null
 
         val href = fixUrlNull(link.attr("href")) ?: return null
-        val title = link.selectFirst("img")?.attr("alt")?.trim()
+
+        if (!href.contains("/movie/") &&
+            !href.contains("/series/") &&
+            !href.contains("/drama-china/")) return null
+
+        val posterImage = link.select("img").firstOrNull {
+            it.attr("alt").isNotBlank()
+        } ?: link.selectFirst("img")
+
+        val title = posterImage?.attr("alt")?.trim()
+            ?.replace(
+                Regex("""\s*[—–-]\s*drama China sub Indo$""", RegexOption.IGNORE_CASE),
+                ""
+            )
             ?.takeIf { it.isNotBlank() }
+            ?: link.selectFirst("h3")?.text()?.trim()
             ?: link.attr("title").trim().takeIf { it.isNotBlank() }
             ?: return null
 
-        val poster = link.selectFirst("img")?.let {
+        val poster = posterImage?.let {
             fixUrlNull(
                 it.attr("src").ifBlank {
                     it.attr("data-src")
@@ -66,17 +89,25 @@ class Kiblat21 : MainAPI() {
     ): HomePageResponse {
         val doc = app.get(mainUrl, headers = headers).document
 
-        val section = doc.select(".cv-row").firstOrNull {
-            it.selectFirst(".content-row-header__title")?.text()
-                ?.equals(request.name, ignoreCase = true) == true
+        val items = if (request.name.equals("Sorotan", ignoreCase = true)) {
+            doc.select("a.sorot-kartu[href]")
+                .mapNotNull { toSearchResult(it) }
+        } else {
+            val section = doc.select("section.cv-row").firstOrNull {
+                it.selectFirst(".content-row-header__title")
+                    ?.text()?.trim()
+                    ?.equals(request.name, ignoreCase = true) == true
+            }
+
+            section?.select("a.content-card[href]")
+                ?.mapNotNull { toSearchResult(it) }
+                ?: emptyList()
         }
 
-        val items = (section?.select("a.content-card")
-            ?: doc.select(".cv-row a.content-card"))
-            .mapNotNull { toSearchResult(it) }
-            .distinctBy { it.url }
-
-        return newHomePageResponse(request.name, items)
+        return newHomePageResponse(
+            request.name,
+            items.distinctBy { it.url }
+        )
     }
 
     override suspend fun search(query: String): List<SearchResponse> {
@@ -84,7 +115,7 @@ class Kiblat21 : MainAPI() {
         val doc = app.get("$mainUrl/search?q=$encoded", headers = headers).document
 
         return doc.select(
-            "a.content-card[href*='/movie/'], a.content-card[href*='/series/']"
+            "a.content-card[href*='/movie/'], a.content-card[href*='/series/'], a.content-card[href*='/drama-china/']"
         ).mapNotNull { toSearchResult(it) }
             .distinctBy { it.url }
     }
