@@ -9,7 +9,7 @@ import com.lagradost.cloudstream3.utils.newExtractorLink
 import com.lagradost.cloudstream3.utils.getAndUnpack
 
 class TwoVCdn : ExtractorApi() {
-    override var name = "2VCDN"
+    override var name = "2Embed"
     override var mainUrl = "https://2vcdn.skin"
     override val requiresReferer = true
 
