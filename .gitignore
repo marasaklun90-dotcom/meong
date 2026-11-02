@@ -13,3 +13,15 @@ local.properties# Temporary website inspection files
 page.html
 abyss.html
 dec.json
+
+# Local debugging artifacts
+/decode-*.cjs
+/kiblat21-*
+/vidzee-*
+/decode-*.cjs
+/kiblat21-*
+/vidzee-*
+build/
+.gradle/
+*.cs3
+*.bak
