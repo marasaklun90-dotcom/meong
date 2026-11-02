@@ -131,7 +131,7 @@ class Kiblat21 : MainAPI() {
                 val ref = if (target.contains("2vcdn.skin"))
                     "https://streamsrcs.2embed.cc/" else watchUrl
                 val ok = loadExtractor(target, ref, subtitleCallback, callback)
-                callback(newExtractorLink("DBG", "DBG $server ok=$ok", watchUrl) { })
+                callback(newExtractorLink("DBG", "DBG $server ok=$ok", "$watchUrl#$server-$ok") { })
                 if (!ok) {
                     val m3u8 = app.get(
                         embedUrl,
@@ -149,7 +149,7 @@ class Kiblat21 : MainAPI() {
                 }
             } catch (e: Exception) {
                 println("KIBLAT21: $server gagal: ${e.message}")
-                callback(newExtractorLink("DBG", "DBG $server ERR ${e.message?.take(60)}", watchUrl) { })
+                callback(newExtractorLink("DBG", "DBG $server ERR ${e.message?.take(60)}", "$watchUrl#err-$server") { })
             }
         }
         return true
