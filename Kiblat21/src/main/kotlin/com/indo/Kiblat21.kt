@@ -155,7 +155,9 @@ class Kiblat21 : MainAPI() {
                 this.quality = Qualities.Unknown.value
             })
         } else {
-            M3u8Helper.generateM3u8(name, link, ref).forEach(cb)
+            cb(newExtractorLink(name, name, link, ExtractorLinkType.M3U8) {
+                this.referer = ref
+            })
         }
     }
 

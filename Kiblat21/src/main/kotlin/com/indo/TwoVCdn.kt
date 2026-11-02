@@ -4,7 +4,8 @@ import com.lagradost.cloudstream3.SubtitleFile
 import com.lagradost.cloudstream3.app
 import com.lagradost.cloudstream3.utils.ExtractorApi
 import com.lagradost.cloudstream3.utils.ExtractorLink
-import com.lagradost.cloudstream3.utils.M3u8Helper
+import com.lagradost.cloudstream3.utils.ExtractorLinkType
+import com.lagradost.cloudstream3.utils.newExtractorLink
 import com.lagradost.cloudstream3.utils.getAndUnpack
 
 class TwoVCdn : ExtractorApi() {
@@ -28,7 +29,11 @@ class TwoVCdn : ExtractorApi() {
             .find(script)?.value
             ?: Regex("""https?://[^"'\\\s]+\.m3u8[^"'\\\s]*""").find(res)?.value
             ?: return
-        M3u8Helper.generateM3u8(name, m3u8, "https://2vcdn.skin/")
-            .forEach(callback)
+        callback(
+            newExtractorLink(name, name, m3u8, ExtractorLinkType.M3U8) {
+                this.referer = "https://2vcdn.skin/"
+                this.headers = mapOf("Origin" to "https://2vcdn.skin")
+            }
+        )
     }
 }
