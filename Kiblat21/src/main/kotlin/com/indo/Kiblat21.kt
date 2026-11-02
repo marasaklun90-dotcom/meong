@@ -221,14 +221,26 @@ class Kiblat21 : MainAPI() {
             } catch (e: Exception) {
                 println("KIBLAT21: $server gagal: ${e.message}")
             }
-            found.toList().forEach { l ->
-                val label = if (l.name.startsWith(server)) l.name else "$server - ${l.name}"
-                callback(newExtractorLink(l.source, label, l.url, l.type) {
-                    this.referer = l.referer
-                    this.quality = l.quality
-                    this.headers = l.headers
+            if (found.isEmpty()) {
+                callback(newExtractorLink(
+                    server,
+                    "$server - Fallback (belum terverifikasi)",
+                    embedUrl
+                ) {
+                    this.referer = watchUrl
+                    this.quality = Qualities.Unknown.value
                 })
                 total.incrementAndGet()
+            } else {
+                found.toList().forEach { l ->
+                    val label = if (l.name.startsWith(server)) l.name else "$server - ${l.name}"
+                    callback(newExtractorLink(l.source, label, l.url, l.type) {
+                        this.referer = l.referer
+                        this.quality = l.quality
+                        this.headers = l.headers
+                    })
+                    total.incrementAndGet()
+                }
             }
         }
         return total.get() > 0
