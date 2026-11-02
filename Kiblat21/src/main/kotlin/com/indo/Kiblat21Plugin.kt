@@ -10,5 +10,6 @@ class Kiblat21Plugin : Plugin() {
         registerMainAPI(Kiblat21())
         registerExtractorAPI(TwoVCdn())
         registerExtractorAPI(Abyss())
+        registerExtractorAPI(Vidlink())
     }
 }
