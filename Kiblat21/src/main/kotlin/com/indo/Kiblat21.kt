@@ -1,5 +1,7 @@
 package com.indo
 
+import com.lagradost.cloudstream3.utils.M3u8Helper
+import com.lagradost.cloudstream3.utils.getAndUnpack
 import kotlinx.coroutines.withTimeoutOrNull
 import com.lagradost.cloudstream3.network.WebViewResolver
 import com.lagradost.cloudstream3.*
@@ -106,54 +108,68 @@ class Kiblat21 : MainAPI() {
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ): Boolean {
-        val watchUrl = if (data.trimEnd('/').endsWith("/watch")) data
-                       else "${data.trimEnd('/')}/watch"
+        val watchUrl = if (data.trimEnd('/').endsWith("/watch")) data else "${data.trimEnd('/')}/watch"
         val html = app.get(watchUrl, headers = mapOf("User-Agent" to "Mozilla/5.0")).text
             .replace("\\\"", "\"").replace("\\/", "/")
         val embeds = Regex(""""server":"([^"]+)","url":"([^"]+)","blocked":(true|false)""")
-            .findAll(html)
-            .filter { it.groupValues[3] == "false" }
+            .findAll(html).filter { it.groupValues[3] == "false" }
             .map { it.groupValues[1] to it.groupValues[2] }
-            .distinctBy { it.second }
-            .toList()
-        println("KIBLAT21: server ditemukan = ${embeds.size}")
-        callback(newExtractorLink("DEBUG", "DEBUG len=${html.length} n=${embeds.size} ${html.take(120)}", watchUrl) { })
-        if (embeds.isEmpty()) return false
+            .distinctBy { it.second }.toList()
+        val total = java.util.concurrent.atomic.AtomicInteger(0)
         embeds.amap { (server, embedUrl) ->
+            val found = java.util.Collections.synchronizedList(mutableListOf<ExtractorLink>())
+            val cb: (ExtractorLink) -> Unit = { found.add(it) }
             try {
-                val target = if (embedUrl.contains("2embed.cc")) {
-                    val src = app.get(embedUrl, referer = watchUrl).document
-                        .selectFirst("iframe#iframesrc")?.attr("data-src")
-                    val id = src?.let {
-                        Regex("""[?&]id=([A-Za-z0-9]+)""").find(it)?.groupValues?.get(1)
-                    }
-                    if (id != null) "https://2vcdn.skin/e/$id" else embedUrl
-                } else embedUrl
-                val ref = if (target.contains("2vcdn.skin"))
-                    "https://streamsrcs.2embed.cc/" else watchUrl
-                var got = 0
-                val ok = withTimeoutOrNull(15000L) { loadExtractor(target, ref, subtitleCallback) { got++; callback(it) } } ?: false
-                callback(newExtractorLink("DBG", "DBG $server ok=$ok got=$got", "$watchUrl#$server-$ok") { })
-                if (got == 0) {
-                    val m3u8 = app.get(
-                        embedUrl,
-                        referer = watchUrl,
-                        interceptor = WebViewResolver(Regex("""\.m3u8"""))
-                    ).url
-                    if (m3u8.contains(".m3u8")) {
-                        callback(
-                            newExtractorLink(server, server, m3u8, ExtractorLinkType.M3U8) {
-                                this.referer = embedUrl
-                                this.quality = Qualities.Unknown.value
-                            }
-                        )
-                    }
-                }
+                val target = resolve2embed(embedUrl, watchUrl)
+                withTimeoutOrNull(12000L) { loadExtractor(target, watchUrl, subtitleCallback, cb) }
+                if (found.isEmpty()) withTimeoutOrNull(15000L) { generic(server, target, watchUrl, cb) }
+                if (found.isEmpty()) withTimeoutOrNull(25000L) { webview(server, embedUrl, watchUrl, cb) }
             } catch (e: Exception) {
                 println("KIBLAT21: $server gagal: ${e.message}")
-                callback(newExtractorLink("DBG", "DBG $server ERR ${e.message?.take(60)}", "$watchUrl#err-$server") { })
+            }
+            found.toList().forEach { l ->
+                val label = if (l.name.startsWith(server)) l.name else "$server - ${l.name}"
+                callback(newExtractorLink(l.source, label, l.url, l.type) {
+                    this.referer = l.referer
+                    this.quality = l.quality
+                    this.headers = l.headers
+                })
+                total.incrementAndGet()
             }
         }
-        return true
+        return total.get() > 0
+    }
+
+    private suspend fun resolve2embed(u: String, ref: String): String {
+        if (!u.contains("2embed.cc")) return u
+        val src = app.get(u, referer = ref).document
+            .selectFirst("iframe#iframesrc")?.attr("data-src") ?: return u
+        val id = Regex("""[?&]id=([A-Za-z0-9]+)""").find(src)?.groupValues?.get(1) ?: return u
+        return "https://2vcdn.skin/e/$id"
+    }
+
+    private suspend fun emit(name: String, link: String, ref: String, cb: (ExtractorLink) -> Unit) {
+        if (link.contains(".mp4")) {
+            cb(newExtractorLink(name, name, link) {
+                this.referer = ref
+                this.quality = Qualities.Unknown.value
+            })
+        } else {
+            M3u8Helper.generateM3u8(name, link, ref).forEach(cb)
+        }
+    }
+
+    private suspend fun generic(name: String, url: String, ref: String, cb: (ExtractorLink) -> Unit) {
+        val res = app.get(url, referer = ref, headers = mapOf("User-Agent" to "Mozilla/5.0")).text
+        val body = try { getAndUnpack(res) } catch (e: Exception) { res }
+        val re = Regex("""https?:[^"'\\\s]+(\.m3u8|\.mp4|/master\.txt)[^"'\\\s]*""")
+        val link = re.find(body)?.value ?: re.find(res)?.value ?: return
+        emit(name, link, url, cb)
+    }
+
+    private suspend fun webview(name: String, url: String, ref: String, cb: (ExtractorLink) -> Unit) {
+        val re = Regex("""\.m3u8|\.mp4|master\.txt""")
+        val r = app.get(url, referer = ref, interceptor = WebViewResolver(re)).url
+        if (re.containsMatchIn(r)) emit(name, r, url, cb)
     }
 }
