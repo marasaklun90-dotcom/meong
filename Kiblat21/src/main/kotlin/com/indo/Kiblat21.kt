@@ -1,5 +1,6 @@
 package com.indo
 
+import kotlinx.coroutines.withTimeoutOrNull
 import com.lagradost.cloudstream3.network.WebViewResolver
 import com.lagradost.cloudstream3.*
 import org.jsoup.nodes.Element
@@ -130,9 +131,10 @@ class Kiblat21 : MainAPI() {
                 } else embedUrl
                 val ref = if (target.contains("2vcdn.skin"))
                     "https://streamsrcs.2embed.cc/" else watchUrl
-                val ok = loadExtractor(target, ref, subtitleCallback, callback)
-                callback(newExtractorLink("DBG", "DBG $server ok=$ok", "$watchUrl#$server-$ok") { })
-                if (!ok) {
+                var got = 0
+                val ok = withTimeoutOrNull(15000L) { loadExtractor(target, ref, subtitleCallback) { got++; callback(it) } } ?: false
+                callback(newExtractorLink("DBG", "DBG $server ok=$ok got=$got", "$watchUrl#$server-$ok") { })
+                if (got == 0) {
                     val m3u8 = app.get(
                         embedUrl,
                         referer = watchUrl,
