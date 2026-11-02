@@ -21,14 +21,18 @@ class TwoVCdn : ExtractorApi() {
     ) {
         val res = app.get(
             url,
-            referer = referer ?: "https://streamsrcs.2embed.cc/",
+            referer = "https://streamsrcs.2embed.cc/",
             headers = mapOf("User-Agent" to "Mozilla/5.0")
         ).text
         val script = try { getAndUnpack(res) } catch (e: Exception) { res }
         val m3u8 = Regex("""https?://[^"'\\\s]+\.m3u8[^"'\\\s]*""")
             .find(script)?.value
             ?: Regex("""https?://[^"'\\\s]+\.m3u8[^"'\\\s]*""").find(res)?.value
-            ?: return
+            ?: run {
+                println("KIBLAT21 2Embed: playlist tidak ditemukan")
+                return
+            }
+        println("KIBLAT21 2Embed: playlist ditemukan")
         callback(
             newExtractorLink(name, name, m3u8, ExtractorLinkType.M3U8) {
                 this.referer = "https://2vcdn.skin/"
