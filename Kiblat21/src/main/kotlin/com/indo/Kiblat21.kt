@@ -107,7 +107,7 @@ class Kiblat21 : MainAPI() {
     ): Boolean {
         val watchUrl = if (data.trimEnd('/').endsWith("/watch")) data
                        else "${data.trimEnd('/')}/watch"
-        val html = app.get(watchUrl, headers = headers).text
+        val html = app.get(watchUrl, headers = mapOf("User-Agent" to "Mozilla/5.0")).text
             .replace("\\\"", "\"").replace("\\/", "/")
         val embeds = Regex(""""server":"([^"]+)","url":"([^"]+)","blocked":(true|false)""")
             .findAll(html)
@@ -116,7 +116,7 @@ class Kiblat21 : MainAPI() {
             .distinctBy { it.second }
             .toList()
         println("KIBLAT21: server ditemukan = ${embeds.size}")
-        callback(newExtractorLink("DEBUG", "DEBUG len=${html.length} n=${embeds.size}", watchUrl) { })
+        callback(newExtractorLink("DEBUG", "DEBUG len=${html.length} n=${embeds.size} ${html.take(120)}", watchUrl) { })
         if (embeds.isEmpty()) return false
         embeds.amap { (server, embedUrl) ->
             try {
