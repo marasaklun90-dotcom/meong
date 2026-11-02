@@ -116,6 +116,7 @@ class Kiblat21 : MainAPI() {
             .distinctBy { it.second }
             .toList()
         println("KIBLAT21: server ditemukan = ${embeds.size}")
+        callback(newExtractorLink("DEBUG", "DEBUG len=${html.length} n=${embeds.size}", watchUrl) { })
         if (embeds.isEmpty()) return false
         embeds.amap { (server, embedUrl) ->
             try {
