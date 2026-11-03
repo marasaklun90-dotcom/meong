@@ -215,7 +215,7 @@ class Kiblat21 : MainAPI() {
             val cb: (ExtractorLink) -> Unit = { found.add(it) }
             try {
                 val isVidzee = embedUrl.contains("vidzee", ignoreCase = true)
-                withTimeoutOrNull(if (isVidzee) 30000L else 25000L) {
+                withTimeoutOrNull(if (isVidzee) 40000L else 25000L) {
                     val target = resolve2embed(embedUrl, watchUrl)
                     if (target.contains("abyssplayer.com")) {
                         Abyss().getUrl(target, watchUrl, subtitleCallback, cb)
@@ -234,7 +234,11 @@ class Kiblat21 : MainAPI() {
             }
             if (found.isNotEmpty()) {
                 found.toList().forEach { l ->
-                    val label = if (l.name.startsWith(server)) l.name else "$server - ${l.name}"
+                    val label = when {
+                        l.name.startsWith("Vidzee ", ignoreCase = true) -> l.name
+                        l.name.startsWith(server) -> l.name
+                        else -> "$server - ${l.name}"
+                    }
                     callback(newExtractorLink(l.source, label, l.url, l.type) {
                         this.referer = l.referer
                         this.quality = l.quality

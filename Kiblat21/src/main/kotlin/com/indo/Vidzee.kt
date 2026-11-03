@@ -13,6 +13,7 @@ import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.ExtractorLinkType
 import com.lagradost.cloudstream3.utils.newExtractorLink
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -39,43 +40,75 @@ class Vidzee(private val context: Context) : ExtractorApi() {
             else -> return
         }
 
-        val response = app.get(
-            "https://core.vidzee.wtf/streams/$path?s=dcloud&e=1",
-            headers = mapOf(
-                "Referer" to "$mainUrl/",
-                "Origin" to mainUrl
-            )
-        ).text
+        val mirrors = listOf(
+            "Dcloud" to "dcloud",
+            "Tcloud" to "tik",
+            "Hindi" to "v6:Hindi",
+            "English" to "v6:English",
+            "Acme" to "acme"
+        )
 
-        val encrypted = JSONObject(response).optString("c")
-        if (encrypted.isBlank()) return
+        kotlinx.coroutines.supervisorScope {
+            val requests = mirrors.map { (label, mirrorId) ->
+                label to async(Dispatchers.IO) {
+                    try {
+                        withTimeoutOrNull(5000L) {
+                            val encodedId = java.net.URLEncoder.encode(
+                                mirrorId, "UTF-8"
+                            )
+                            val response = app.get(
+                                "https://core.vidzee.wtf/streams/$path?s=$encodedId&e=1",
+                                headers = mapOf(
+                                    "Referer" to "$mainUrl/",
+                                    "Origin" to mainUrl
+                                )
+                            ).text
+                            JSONObject(response).optString("c")
+                                .takeIf { it.isNotBlank() }
+                        }
+                    } catch (e: Exception) {
+                        println("VIDZEE $label API gagal: ${e.message}")
+                        null
+                    }
+                }
+            }
 
-        val result = withTimeoutOrNull(20000L) {
-            decrypt(encrypted, url)
-        } ?: return
+            for ((label, request) in requests) {
+                val encrypted = request.await() ?: continue
 
-        val stream = JSONObject(result)
-        val streamUrl = stream.optString("url")
-        if (!streamUrl.startsWith("https://")) return
+                try {
+                    val decrypted = withTimeoutOrNull(12000L) {
+                        decrypt(encrypted, url)
+                    } ?: continue
 
-        val streamHeaders = mutableMapOf<String, String>()
-        stream.optJSONObject("headers")?.let { headers ->
-            for (key in headers.keys()) {
-                streamHeaders[key] = headers.optString(key)
+                    val stream = JSONObject(decrypted)
+                    val streamUrl = stream.optString("url")
+                    if (!streamUrl.startsWith("https://")) continue
+
+                    val streamHeaders = mutableMapOf<String, String>()
+                    stream.optJSONObject("headers")?.let { headers ->
+                        for (key in headers.keys()) {
+                            streamHeaders[key] = headers.optString(key)
+                        }
+                    }
+
+                    callback(
+                        newExtractorLink(
+                            name,
+                            "Vidzee $label",
+                            streamUrl,
+                            type = ExtractorLinkType.M3U8
+                        ) {
+                            this.referer = "$mainUrl/"
+                            this.headers = streamHeaders
+                        }
+                    )
+                    println("VIDZEE $label berhasil")
+                } catch (e: Exception) {
+                    println("VIDZEE $label gagal: ${e.message}")
+                }
             }
         }
-
-        callback(
-            newExtractorLink(
-                name,
-                "$name Dcloud",
-                streamUrl,
-                type = ExtractorLinkType.M3U8
-            ) {
-                this.referer = "$mainUrl/"
-                this.headers = streamHeaders
-            }
-        )
     }
 
     @SuppressLint("SetJavaScriptEnabled")
