@@ -23,8 +23,8 @@ class Anichin : MainAPI() {
     )
 
     override val mainPage = mainPageOf(
-        "$mainUrl/" to "Populer",
         "$mainUrl/" to "Latest",
+        "$mainUrl/" to "Populer",
         "$mainUrl/" to "Movie",
     )
 
