@@ -249,7 +249,36 @@ class Otakudesu : MainAPI() {
                             }
                         }
 
-                        else -> loadExtractor(fixedUrl, data, subtitleCallback, callback)
+                        lowerUrl.contains("filedon.co/") -> {
+                        val slug = Regex("/(?:view|embed|d|f)/([A-Za-z0-9]+)")
+                            .find(fixedUrl)?.groupValues?.getOrNull(1)
+                        if (slug != null) {
+                            val embedUrl = "https://filedon.co/embed/$slug"
+                            try {
+                                val doc = app.get(embedUrl).document
+                                val raw = doc.selectFirst("[data-page]")?.attr("data-page")
+                                val props = raw?.let {
+                                    JSONObject(it).optJSONObject("props")
+                                }
+                                val direct = props?.optString("url")
+                                    ?.takeIf { it.isNotBlank() && it != "null" }
+
+                                if (direct != null) {
+                                    callback(newExtractorLink("Filedon", serverName, direct) {
+                                        this.quality = quality
+                                        this.referer = embedUrl
+                                    })
+                                } else {
+                                    loadExtractor(fixedUrl, data, subtitleCallback, callback)
+                                }
+                            } catch (_: Exception) {
+                                loadExtractor(fixedUrl, data, subtitleCallback, callback)
+                            }
+                        } else {
+                            loadExtractor(fixedUrl, data, subtitleCallback, callback)
+                        }
+                    }
+                    else -> loadExtractor(fixedUrl, data, subtitleCallback, callback)
                     }
                 }
             }
