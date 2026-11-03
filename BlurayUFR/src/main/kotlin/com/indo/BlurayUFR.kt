@@ -27,7 +27,7 @@ class BlurayUFR : MainAPI() {
     override val mainPage = mainPageOf(
         "$mainUrl/genre/box-office" to "Box Office",
         "$mainUrl" to "Film Terbaru",
-        "$mainUrl/best-rating" to "Best Rating",
+        "$mainUrl/genre/horror" to "Horror",
         "$mainUrl/tv" to "TV Series"
     )
 
