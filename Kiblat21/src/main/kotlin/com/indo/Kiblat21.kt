@@ -270,7 +270,11 @@ class Kiblat21 : MainAPI() {
                         l.name.startsWith(server) -> l.name
                         else -> "$server - ${l.name}"
                     }
-                    callback(newExtractorLink(l.source, label, l.url, l.type) {
+                    val cleanLabel = label.replace(
+                        Regex("""^SERVER\s*\d+\s*[-–:]\s*""", RegexOption.IGNORE_CASE),
+                        ""
+                    ).trim()
+                    callback(newExtractorLink(l.source, cleanLabel, l.url, l.type) {
                         this.referer = l.referer
                         this.quality = l.quality
                         this.headers = l.headers
