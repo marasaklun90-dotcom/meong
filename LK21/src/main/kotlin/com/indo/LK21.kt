@@ -544,8 +544,15 @@ class LK21 : MainAPI() {
                                 foundAny = true
                             }
                         } else {
-                            loadExtractor(embedUrl, playerUrl, subtitleCallback, callback)
-                            foundAny = true
+                            val extracted = loadExtractor(
+                                embedUrl,
+                                playerUrl,
+                                subtitleCallback,
+                                callback
+                            )
+                            if (extracted) {
+                                foundAny = true
+                            }
                         }
                     }
                 } else {
