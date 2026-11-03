@@ -285,7 +285,7 @@ class TheMovieBoxProvider : MainAPI() {
         "8821254238245470240" to "Trending Movies",
         "7132534597631837112" to "Animated Film",
         "5848753831881965888" to "Indonesian Horror Stories",
-        "6528093688173053896" to "Ranking 3",
+        "6528093688173053896" to "Trending Indonesian Movies",
         "8624142774394406504" to "Trending C-Drama",
     )
 
