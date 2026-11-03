@@ -298,7 +298,7 @@ class MovieboxProvider : MainAPI() {
             val url = "$mainAPIUrl/wefeed-h5api-bff/ranking-list/content?id=${request.data}&page=$page&perPage=12"
             val index = app.get(url).parsedSafe<Media>()?.data?.subjectList?.mapNotNull { item ->
                 val tags = item.genre?.split(",")?.map { it.trim() }
-                if (isNsfw(title = item.title, description = item.description, tags = tags) || isAnimeOrAnimation(item.subjectType, tags) || isDubbedTitle(item.title) || isExcludedCategory(item.title, tags)) null
+                if (isNsfw(title = item.title, description = item.description, tags = tags) || (request.data !in listOf("4019055174353407000", "7132534597631837112") && isAnimeOrAnimation(item.subjectType, tags)) || isDubbedTitle(item.title) || isExcludedCategory(item.title, tags)) null
                 else item.toSearchResponse(this)
             } ?: emptyList()
 
