@@ -10,5 +10,4 @@ include(
     "AnimeXin",
     "MovieBox",
     "Kiblat21",
-    "GfyMultimedx",
     )
