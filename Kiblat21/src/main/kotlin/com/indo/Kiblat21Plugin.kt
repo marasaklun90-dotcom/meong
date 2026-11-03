@@ -11,5 +11,6 @@ class Kiblat21Plugin : Plugin() {
         registerExtractorAPI(TwoVCdn())
         registerExtractorAPI(Abyss())
         registerExtractorAPI(Vidlink())
+        registerExtractorAPI(Vidzee(context.applicationContext))
     }
 }

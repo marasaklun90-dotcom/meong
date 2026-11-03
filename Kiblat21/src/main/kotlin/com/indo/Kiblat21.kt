@@ -212,7 +212,9 @@ class Kiblat21 : MainAPI() {
             val cb: (ExtractorLink) -> Unit = { found.add(it) }
             try {
                 val target = resolve2embed(embedUrl, watchUrl)
-                withTimeoutOrNull(12000L) {
+                withTimeoutOrNull(
+                    if (target.contains("player.vidzee.wtf")) 30000L else 12000L
+                ) {
                     if (target.contains("abyssplayer.com")) Abyss().getUrl(target, watchUrl, subtitleCallback, cb)
                     else loadExtractor(target, watchUrl, subtitleCallback, cb)
                 }
