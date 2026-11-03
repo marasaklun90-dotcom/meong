@@ -283,8 +283,11 @@ class TheMovieBoxProvider : MainAPI() {
     override val mainPage: List<MainPageData> = mainPageOf(
         "4019055174353407000" to "Recently Added",
         "8821254238245470240" to "Trending Movies",
+        "7132534597631837112" to "Animated Film",
+        "5848753831881965888" to "Indonesian Horror Stories",
+        "6528093688173053896" to "Ranking 3",
+        "8624142774394406504" to "Trending C-Drama",
     )
-
 
     private fun nuxtValue(nodes: com.fasterxml.jackson.databind.JsonNode, index: Int): com.fasterxml.jackson.databind.JsonNode? {
         return if (index >= 0 && index < nodes.size()) nodes.get(index) else null
@@ -302,6 +305,10 @@ class TheMovieBoxProvider : MainAPI() {
         val path = when (rankingId) {
             "4019055174353407000" -> "GTlPM9yjTM4"
             "8821254238245470240" -> "0WpiaF9rDva"
+            "7132534597631837112" -> "IWgO1od5Tu8"
+            "5848753831881965888" -> "CfKMi5Zl3Y6"
+            "6528093688173053896" -> "IMRfsdMJeM7"
+            "8624142774394406504" -> "e9hxZNfF4ha"
             else -> return emptyList()
         }
 
