@@ -67,19 +67,50 @@ class TwoVCdn : ExtractorApi() {
 
         println("2Embed Swish: sumber HLS ditemukan")
 
-        callback(
-            newExtractorLink(
-                name,
-                name,
-                selected,
-                ExtractorLinkType.M3U8
-            ) {
-                this.referer = "$mainUrl/"
-                this.headers = mapOf(
-                    "Origin" to mainUrl,
-                    "Referer" to "$mainUrl/"
+        val streamHeaders = mapOf(
+            "Origin" to mainUrl,
+            "Referer" to "$mainUrl/"
+        )
+
+        val qualityLinks = try {
+            com.lagradost.cloudstream3.utils.M3u8Helper.generateM3u8(
+                source = name,
+                streamUrl = selected,
+                referer = "$mainUrl/",
+                headers = streamHeaders
+            )
+        } catch (e: Exception) {
+            println("2Embed Swish resolusi gagal: ${e.message}")
+            emptyList()
+        }
+
+        if (qualityLinks.isNotEmpty()) {
+            qualityLinks.forEach { link ->
+                callback(
+                    newExtractorLink(
+                        name,
+                        "$name ${link.quality}p",
+                        link.url,
+                        link.type
+                    ) {
+                        this.referer = link.referer
+                        this.quality = link.quality
+                        this.headers = streamHeaders
+                    }
                 )
             }
-        )
+        } else {
+            callback(
+                newExtractorLink(
+                    name,
+                    name,
+                    selected,
+                    ExtractorLinkType.M3U8
+                ) {
+                    this.referer = "$mainUrl/"
+                    this.headers = streamHeaders
+                }
+            )
+        }
     }
 }

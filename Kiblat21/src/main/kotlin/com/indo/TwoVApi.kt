@@ -110,20 +110,56 @@ open class TwoVApi(
                         .replace(Regex("""^Server\s+""", RegexOption.IGNORE_CASE), "")
                         .ifBlank { "Server ${i + 1}" }
 
-                    callback(
-                        newExtractorLink(
-                            name,
-                            "$name $label",
-                            videoUrl,
-                            linkType
-                        ) {
-                            this.referer = "$mainUrl/"
-                            this.headers = mapOf(
-                                "Referer" to "$mainUrl/",
-                                "Origin" to mainUrl
+                    val displayName = "$name $label"
+                    val streamHeaders = mapOf(
+                        "Referer" to "$mainUrl/",
+                        "Origin" to mainUrl
+                    )
+
+                    val qualityLinks = if (linkType == ExtractorLinkType.M3U8) {
+                        try {
+                            com.lagradost.cloudstream3.utils.M3u8Helper.generateM3u8(
+                                source = displayName,
+                                streamUrl = videoUrl,
+                                referer = "$mainUrl/",
+                                headers = streamHeaders
+                            )
+                        } catch (e: Exception) {
+                            println("$displayName resolusi gagal: ${e.message}")
+                            emptyList()
+                        }
+                    } else {
+                        emptyList()
+                    }
+
+                    if (qualityLinks.isNotEmpty()) {
+                        qualityLinks.forEach { link ->
+                            callback(
+                                newExtractorLink(
+                                    name,
+                                    "$displayName ${link.quality}p",
+                                    link.url,
+                                    link.type
+                                ) {
+                                    this.referer = link.referer
+                                    this.quality = link.quality
+                                    this.headers = streamHeaders
+                                }
                             )
                         }
-                    )
+                    } else {
+                        callback(
+                            newExtractorLink(
+                                name,
+                                displayName,
+                                videoUrl,
+                                linkType
+                            ) {
+                                this.referer = "$mainUrl/"
+                                this.headers = streamHeaders
+                            }
+                        )
+                    }
 
                     count++
 
