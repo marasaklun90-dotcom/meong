@@ -205,35 +205,34 @@ class Kiblat21 : MainAPI() {
             .toList()
 
         println("KIBLAT21: ditemukan ${embeds.size} embed")
+        embeds.forEach { (server, url) ->
+            println("KIBLAT21 EMBED: $server -> $url")
+        }
 
         val total = java.util.concurrent.atomic.AtomicInteger(0)
         embeds.amap { (server, embedUrl) ->
             val found = java.util.Collections.synchronizedList(mutableListOf<ExtractorLink>())
             val cb: (ExtractorLink) -> Unit = { found.add(it) }
             try {
-                val target = resolve2embed(embedUrl, watchUrl)
-                withTimeoutOrNull(
-                    if (target.contains("player.vidzee.wtf")) 30000L else 12000L
-                ) {
-                    if (target.contains("abyssplayer.com")) Abyss().getUrl(target, watchUrl, subtitleCallback, cb)
-                    else loadExtractor(target, watchUrl, subtitleCallback, cb)
+                val isVidzee = embedUrl.contains("vidzee", ignoreCase = true)
+                withTimeoutOrNull(if (isVidzee) 30000L else 25000L) {
+                    val target = resolve2embed(embedUrl, watchUrl)
+                    if (target.contains("abyssplayer.com")) {
+                        Abyss().getUrl(target, watchUrl, subtitleCallback, cb)
+                    } else {
+                        loadExtractor(target, watchUrl, subtitleCallback, cb)
+                    }
+                    if (found.isEmpty() && !target.contains("vidzee", ignoreCase = true)) {
+                        withTimeoutOrNull(7000L) { generic(server, target, watchUrl, cb) }
+                    }
+                    if (found.isEmpty() && !target.contains("vidzee", ignoreCase = true)) {
+                        withTimeoutOrNull(8000L) { webview(server, embedUrl, watchUrl, cb) }
+                    }
                 }
-                if (found.isEmpty()) withTimeoutOrNull(15000L) { generic(server, target, watchUrl, cb) }
-                if (found.isEmpty()) withTimeoutOrNull(25000L) { webview(server, embedUrl, watchUrl, cb) }
             } catch (e: Exception) {
                 println("KIBLAT21: $server gagal: ${e.message}")
             }
-            if (found.isEmpty()) {
-                callback(newExtractorLink(
-                    server,
-                    "$server - Fallback (belum terverifikasi)",
-                    embedUrl
-                ) {
-                    this.referer = watchUrl
-                    this.quality = Qualities.Unknown.value
-                })
-                total.incrementAndGet()
-            } else {
+            if (found.isNotEmpty()) {
                 found.toList().forEach { l ->
                     val label = if (l.name.startsWith(server)) l.name else "$server - ${l.name}"
                     callback(newExtractorLink(l.source, label, l.url, l.type) {

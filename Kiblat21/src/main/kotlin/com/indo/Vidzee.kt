@@ -51,7 +51,7 @@ class Vidzee(private val context: Context) : ExtractorApi() {
         if (encrypted.isBlank()) return
 
         val result = withTimeoutOrNull(20000L) {
-            decrypt(encrypted)
+            decrypt(encrypted, url)
         } ?: return
 
         val stream = JSONObject(result)
@@ -79,7 +79,7 @@ class Vidzee(private val context: Context) : ExtractorApi() {
     }
 
     @SuppressLint("SetJavaScriptEnabled")
-    private suspend fun decrypt(encrypted: String): String? =
+    private suspend fun decrypt(encrypted: String, embedUrl: String): String? =
         withContext(Dispatchers.Main) {
             suspendCancellableCoroutine { continuation ->
                 val webView = WebView(context.applicationContext)
@@ -146,12 +146,20 @@ class Vidzee(private val context: Context) : ExtractorApi() {
                                 })()
                             """.trimIndent()
 
-                            view.evaluateJavascript(js, null)
+                            view.evaluateJavascript(js) { result ->
+                                try {
+                                    val decoded = if (result == "null") null
+                                        else org.json.JSONTokener(result).nextValue() as? String
+                                    finish(decoded)
+                                } catch (_: Exception) {
+                                    finish(null)
+                                }
+                            }
                         }
                     }
                 }
 
-                webView.loadUrl("$mainUrl/embed/tv/259702/1/1")
+                webView.loadUrl(embedUrl)
             }
         }
 }
