@@ -27,7 +27,7 @@ class Kiblat21 : MainAPI() {
     )
 
     override val mainPage = mainPageOf(
-        "$mainUrl" to "Sorotan",
+        
         "$mainUrl" to "Lagi Tren Sekarang",
         "$mainUrl" to "Film Indonesia",
         "$mainUrl" to "Film Terbaru",
@@ -87,22 +87,60 @@ class Kiblat21 : MainAPI() {
         page: Int,
         request: MainPageRequest
     ): HomePageResponse {
-        val doc = app.get(mainUrl, headers = headers).document
+        val categoryPath = when (request.name.lowercase()) {
+            "film indonesia" -> "/country/id"
+            "film terbaru" -> "/movie"
+            "serial tv terbaru" -> "/series"
+            "anime" -> "/anime"
+            "drama korea" -> "/country/kr"
+            "drama china" -> "/drama-china"
+            "horor" -> "/genre/horror"
+            else -> null
+        }
 
-        val items = if (request.name.equals("Sorotan", ignoreCase = true)) {
-            doc.select("a.sorot-kartu[href]")
-                .mapNotNull { toSearchResult(it) }
-        } else {
-            val section = doc.select("section.cv-row").firstOrNull {
-                it.selectFirst(".content-row-header__title")
-                    ?.text()?.trim()
-                    ?.equals(request.name, ignoreCase = true) == true
+        if (categoryPath != null) {
+            val query = if (
+                categoryPath == "/movie" ||
+                categoryPath == "/series"
+            ) {
+                "?sort=popularity.desc&page=$page"
+            } else {
+                "?page=$page"
             }
 
-            section?.select("a.content-card[href]")
-                ?.mapNotNull { toSearchResult(it) }
-                ?: emptyList()
+            val doc = app.get(
+                "$mainUrl$categoryPath$query",
+                headers = headers
+            ).document
+
+            val items = doc.select("a.content-card[href]")
+                .mapNotNull { toSearchResult(it) }
+                .distinctBy { it.url }
+
+            return newHomePageResponse(
+                request.name,
+                items
+            )
         }
+
+        if (page > 1) {
+            return newHomePageResponse(
+                request.name,
+                emptyList()
+            )
+        }
+
+        val doc = app.get(mainUrl, headers = headers).document
+
+        val section = doc.select("section.cv-row").firstOrNull {
+            it.selectFirst(".content-row-header__title")
+                ?.text()?.trim()
+                ?.equals(request.name, ignoreCase = true) == true
+        }
+
+        val items = section?.select("a.content-card[href]")
+            ?.mapNotNull { toSearchResult(it) }
+            ?: emptyList()
 
         return newHomePageResponse(
             request.name,

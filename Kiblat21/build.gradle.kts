@@ -1,4 +1,4 @@
-version = 35
+version = 1
 cloudstream {
     language = "id"
     authors = listOf("ExtremeBoy")
