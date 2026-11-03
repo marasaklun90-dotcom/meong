@@ -237,15 +237,25 @@ class PusatFilm21 : MainAPI() {
     override suspend fun load(url: String): LoadResponse {
         val doc = app.get(url).document
 
-        val rawTitle = doc.selectFirst("h1")?.text()?.trim()
-            ?: doc.selectFirst("meta[property=og:title]")?.attr("content")
-            ?: "PusatFilm21"
+
+        val ogTitle = doc.selectFirst("meta[property=og:title]")
+            ?.attr("content")?.trim().orEmpty()
+
+        val pageTitle = doc.title().trim()
+
+        val rawTitle = listOf(ogTitle, pageTitle)
+            .firstOrNull {
+                it.isNotBlank() &&
+                !it.equals("film", true) &&
+                !it.equals("serial", true)
+            } ?: doc.selectFirst("h1")?.text()?.trim().orEmpty()
 
         val title = rawTitle
-            .replace(Regex("^Nonton\\s+", RegexOption.IGNORE_CASE), "")
-            .replace(Regex("\\s+Sub Indo.*$", RegexOption.IGNORE_CASE), "")
+            .replace(Regex("""^Nonton\\s+(?:Film|Serial)?\\s*""", RegexOption.IGNORE_CASE), "")
+            .replace(Regex("""\\s+Sub\\s+Indo.*$""", RegexOption.IGNORE_CASE), "")
+            .replace(Regex("""\\s+Subtitle\\s+Indonesia.*$""", RegexOption.IGNORE_CASE), "")
+            .replace(Regex("""\\s*[|/]\\s*PUSATFILM21.*$""", RegexOption.IGNORE_CASE), "")
             .trim()
-
         val poster = doc.selectFirst("meta[property=og:image]")
             ?.attr("content")
             ?.ifBlank { null }
