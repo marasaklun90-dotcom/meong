@@ -217,6 +217,37 @@ class Kiblat21 : MainAPI() {
                 val isVidzee = embedUrl.contains("vidzee", ignoreCase = true)
                 withTimeoutOrNull(if (isVidzee) 40000L else 25000L) {
                     val target = resolve2embed(embedUrl, watchUrl)
+
+                    if (embedUrl.contains("2embed.cc", ignoreCase = true)) {
+                        val tmdbId = Regex(
+                            """(?:/embed/|[?&]tmdb=)([0-9]+)"""
+                        ).find(embedUrl)?.groupValues?.get(1)
+
+                        if (tmdbId != null) {
+                            val mirrors = listOf(
+                                "https://vidsrc.buzz/embed/movie/$tmdbId",
+                                "https://videm.xyz/embed/movie/$tmdbId"
+                            )
+
+                            mirrors.amap { mirror ->
+                                try {
+                                    withTimeoutOrNull(20000L) {
+                                        loadExtractor(
+                                            mirror,
+                                            embedUrl,
+                                            subtitleCallback,
+                                            cb
+                                        )
+                                    }
+                                } catch (e: Exception) {
+                                    println(
+                                        "KIBLAT21 2Embed mirror gagal: ${e.message}"
+                                    )
+                                }
+                            }
+                        }
+                    }
+
                     if (target.contains("abyssplayer.com")) {
                         Abyss().getUrl(target, watchUrl, subtitleCallback, cb)
                     } else {

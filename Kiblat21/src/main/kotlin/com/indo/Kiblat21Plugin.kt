@@ -9,6 +9,8 @@ class Kiblat21Plugin : Plugin() {
     override fun load(context: Context) {
         registerMainAPI(Kiblat21())
         registerExtractorAPI(TwoVCdn())
+        registerExtractorAPI(TwoVVsrc())
+        registerExtractorAPI(TwoVVidem())
         registerExtractorAPI(Abyss())
         registerExtractorAPI(Vidlink())
         registerExtractorAPI(Vidzee(context.applicationContext))
