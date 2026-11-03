@@ -18,12 +18,26 @@ class GfyMultimedxPlugin : Plugin() {
 
             activity?.runOnUiThread {
                 val webView = WebView(activity)
+                webView.isFocusable = true
+                webView.isFocusableInTouchMode = true
+                webView.requestFocus()
+                activity.window.setSoftInputMode(
+                    android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+                )
                 webView.settings.javaScriptEnabled = true
                 webView.settings.domStorageEnabled = true
                 CookieManager.getInstance().setAcceptCookie(true)
                 CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true)
 
-                webView.webViewClient = WebViewClient()
+                webView.webViewClient = object : WebViewClient() {
+                    override fun shouldOverrideUrlLoading(
+                        view: WebView?,
+                        request: android.webkit.WebResourceRequest?
+                    ): Boolean {
+                        val uri = request?.url ?: return false
+                        return uri.scheme !in listOf("http", "https")
+                    }
+                }
                 webView.loadUrl("https://gfymultimedx.online/akun/masuk")
 
                 AlertDialog.Builder(activity)
