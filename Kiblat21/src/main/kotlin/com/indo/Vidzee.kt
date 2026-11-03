@@ -139,22 +139,15 @@ class Vidzee(private val context: Context) : ExtractorApi() {
                                 (async function() {
                                     try {
                                         const data = await window.vidzeeDecrypt($payload);
-                                        return data ? JSON.stringify(data) : null;
+                                        document.title = "VIDZEE_RESULT:" +
+                                            encodeURIComponent(JSON.stringify(data));
                                     } catch (e) {
-                                        return null;
+                                        document.title = "VIDZEE_ERROR";
                                     }
                                 })()
                             """.trimIndent()
 
-                            view.evaluateJavascript(js) { result ->
-                                try {
-                                    val decoded = if (result == "null") null
-                                        else org.json.JSONTokener(result).nextValue() as? String
-                                    finish(decoded)
-                                } catch (_: Exception) {
-                                    finish(null)
-                                }
-                            }
+                            view.evaluateJavascript(js, null)
                         }
                     }
                 }
