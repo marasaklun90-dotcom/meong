@@ -282,43 +282,141 @@ class TheMovieBoxProvider : MainAPI() {
     // Curated Main Page without Anime or Dubbed duplicates
     override val mainPage: List<MainPageData> = mainPageOf(
         "4019055174353407000" to "Recently Added",
-        "4007245354319105208" to "Trending Movie",
+        "8821254238245470240" to "Trending Movies",
     )
+
+
+    private fun nuxtValue(nodes: com.fasterxml.jackson.databind.JsonNode, index: Int): com.fasterxml.jackson.databind.JsonNode? {
+        return if (index >= 0 && index < nodes.size()) nodes.get(index) else null
+    }
+
+    private fun nuxtText(nodes: com.fasterxml.jackson.databind.JsonNode, index: Int): String? {
+        return nuxtValue(nodes, index)?.takeIf { it.isTextual }?.asText()
+    }
+
+
+    private suspend fun websiteRanking(
+        rankingId: String,
+        category: String
+    ): List<SearchResponse> {
+        val path = when (rankingId) {
+            "4019055174353407000" -> "GTlPM9yjTM4"
+            "8821254238245470240" -> "0WpiaF9rDva"
+            else -> return emptyList()
+        }
+
+        val url = "$mainUrl/ranking-list/$path?id=$rankingId&page_from=more_SUBJECTS_MOVIE"
+        val html = app.get(url).text
+
+        val payload = Regex(
+            """<script[^>]*id="__NUXT_DATA__"[^>]*>(.*?)</script>""",
+            setOf(RegexOption.DOT_MATCHES_ALL, RegexOption.IGNORE_CASE)
+        ).find(html)?.groupValues?.get(1) ?: return emptyList()
+
+        val nodes = mapper.readTree(payload)
+        if (!nodes.isArray) return emptyList()
+
+        // Baca urutan kartu ranking dari HTML.
+        val cardRegex = Regex(
+            """<a\b[^>]*href="/detail/[^"]+"[^>]*>.*?<h3[^>]*class="subject-title"[^>]*>.*?<div[^>]*class="title-text"[^>]*>(.*?)</div>""",
+            setOf(RegexOption.DOT_MATCHES_ALL, RegexOption.IGNORE_CASE)
+        )
+
+        val orderedTitles = cardRegex.findAll(html)
+            .map { match ->
+                org.jsoup.Jsoup.parse(match.groupValues[1]).text().trim()
+            }
+            .filter { it.isNotBlank() }
+            .distinct()
+            .toList()
+
+        if (orderedTitles.isEmpty()) return emptyList()
+
+        // Cocokkan judul dengan subjectId dan poster dari payload Nuxt.
+        val subjects = mutableMapOf<String, com.fasterxml.jackson.databind.JsonNode>()
+
+        for (node in nodes) {
+            if (!node.isObject ||
+                !node.has("subjectId") ||
+                !node.has("title") ||
+                !node.has("cover")
+            ) continue
+
+            val title = nuxtText(nodes, node.path("title").asInt(-1))
+                ?: continue
+
+            subjects.putIfAbsent(title.trim().lowercase(), node)
+        }
+
+        val results = mutableListOf<SearchResponse>()
+        val seen = mutableSetOf<String>()
+
+        for (title in orderedTitles) {
+            val node = subjects[title.lowercase()] ?: continue
+
+            val id = nuxtText(nodes, node.path("subjectId").asInt(-1))
+                ?: continue
+
+            if (!seen.add(id)) continue
+
+            val type = nuxtValue(
+                nodes,
+                node.path("subjectType").asInt(-1)
+            )?.asInt() ?: 1
+
+            val cover = nuxtValue(
+                nodes,
+                node.path("cover").asInt(-1)
+            )
+
+            val poster = cover?.takeIf { it.isObject }?.let {
+                nuxtText(nodes, it.path("url").asInt(-1))
+            }
+
+            results.add(
+                newMovieSearchResponse(
+                    title,
+                    id,
+                    if (type == 1) TvType.Movie else TvType.TvSeries,
+                    false
+                ) {
+                    posterUrl = poster
+                }
+            )
+        }
+
+        return results
+    }
 
     override suspend fun getMainPage(
         page: Int,
         request: MainPageRequest,
     ): HomePageResponse {
-        val home = mutableListOf<SearchResponse>()
-        if (!request.data.contains(",")) {
-            val url = "$mainAPIUrl/wefeed-h5api-bff/ranking-list/content?id=${request.data}&page=$page&perPage=12"
-            val index = app.get(url).parsedSafe<Media>()?.data?.subjectList?.mapNotNull { item ->
-                val tags = item.genre?.split(",")?.map { it.trim() }
-                if (isNsfw(title = item.title, description = item.description, tags = tags) || isAnimeOrAnimation(item.subjectType, tags) || isDubbedTitle(item.title) || isExcludedCategory(item.title, tags)) null
-                else item.toSearchResponse(this)
-            } ?: emptyList()
-
-            home.addAll(index)
-        } else {
-            val params = request.data.split(",")
-            val body = mapOf(
-                "channelId" to params.first(),
-                "page" to page,
-                "perPage" to "28",
-                "sort" to params[1]
-            ).plus(if (params.size > 2) mapOf("genre" to params[2]) else emptyMap()).toJson().toRequestBody(RequestBodyTypes.JSON.toMediaTypeOrNull())
-
-            val index = app.post("$mainAPIUrl/wefeed-h5api-bff/subject/filter", requestBody = body)
-                .parsedSafe<Media>()?.data?.items?.mapNotNull { item ->
-                    val tags = item.genre?.split(",")?.map { it.trim() }
-                    if (isNsfw(title = item.title, description = item.description, tags = tags) || (params.size < 3 && isAnimeOrAnimation(item.subjectType, tags)) || isDubbedTitle(item.title) || isExcludedCategory(item.title, tags)) null
-                    else item.toSearchResponse(this)
-                } ?: emptyList()
-
-            home.addAll(index)
+        val home = try {
+            websiteRanking(request.data, request.name)
+        } catch (_: Exception) {
+            emptyList()
         }
 
-        return newHomePageResponse(request.name, home)
+        if (home.isNotEmpty()) {
+            val start = (page - 1) * 12
+            val items = home.drop(start).take(12)
+            return newHomePageResponse(request.name, items)
+        }
+
+        val url = "$mainAPIUrl/wefeed-h5api-bff/ranking-list/content?id=${request.data}&page=$page&perPage=12"
+        val fallback = app.get(url).parsedSafe<Media>()?.data?.subjectList
+            ?.mapNotNull { item ->
+                val tags = item.genre?.split(",")?.map { it.trim() }
+                if (
+                    isNsfw(title = item.title, description = item.description, tags = tags) ||
+                    isAnimeOrAnimation(item.subjectType, tags) ||
+                    isDubbedTitle(item.title) ||
+                    isExcludedCategory(item.title, tags)
+                ) null else item.toSearchResponse(this)
+            } ?: emptyList()
+
+        return newHomePageResponse(request.name, fallback)
     }
 
     override suspend fun quickSearch(query: String): List<SearchResponse> = search(query)
