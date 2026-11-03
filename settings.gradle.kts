@@ -9,5 +9,6 @@ include(
     "LayarAsia",
     "AnimeXin",
     "MovieBox",
+    "TheMovieBox",
     "Kiblat21",
     )
