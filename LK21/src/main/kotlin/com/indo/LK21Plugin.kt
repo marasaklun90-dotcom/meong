@@ -8,6 +8,5 @@ import com.lagradost.cloudstream3.plugins.Plugin
 class LK21Plugin : Plugin() {
     override fun load(context: Context) {
         registerMainAPI(LK21())
-        registerExtractorAPI(Cast())
     }
 }
