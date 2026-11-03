@@ -2,6 +2,11 @@ package com.indo
 
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.ExtractorLink
+import com.lagradost.nicehttp.JsonAsString
+import com.lagradost.cloudstream3.utils.newExtractorLink
+import com.lagradost.cloudstream3.utils.Qualities
+import com.lagradost.cloudstream3.utils.ExtractorLinkType
+import com.lagradost.cloudstream3.utils.loadExtractor
 import org.jsoup.nodes.Element
 import java.net.URLEncoder
 import org.json.JSONArray
@@ -14,6 +19,12 @@ class PusatFilm21 : MainAPI() {
     override val hasMainPage = true
     override val supportedTypes = setOf(TvType.Movie, TvType.TvSeries)
 
+
+
+    private val headers = mapOf(
+        "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
+        "Referer" to "$mainUrl/"
+    )
 
     private val homeCategories = listOf(
         "Sedang Trending",
@@ -266,13 +277,182 @@ class PusatFilm21 : MainAPI() {
         }
     }
 
+
     override suspend fun loadLinks(
         data: String,
         isCasting: Boolean,
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ): Boolean {
-        // Tahap berikutnya: integrasi sumber video yang kompatibel.
-        return false
+        val pageText = app.get(data, headers = headers).text
+
+        val unescaped = pageText.replace("\\\"", "\"").replace("\\/", "/")
+
+        val activeShare = Regex("""["']embedUrl["']:\s*["']https?://kotakajaib\.me/(?:embed|file)/([a-zA-Z0-9_-]+)""").find(unescaped)?.groupValues?.getOrNull(1)
+
+        val shares = if (!activeShare.isNullOrBlank()) {
+            listOf(activeShare)
+        } else {
+            Regex("""kotakajaib\.me/(?:embed|file)/([a-zA-Z0-9_-]+)""").findAll(unescaped)
+                .map { it.groupValues[1] }
+                .distinct()
+                .take(2)
+                .toList()
+        }
+
+        for (share in shares) {
+            extractKotakAjaib(share, data, subtitleCallback, callback)
+        }
+
+        return true
+    }
+
+    private suspend fun extractKotakAjaib(
+        share: String,
+        refererUrl: String,
+        subtitleCallback: (SubtitleFile) -> Unit,
+        callback: (ExtractorLink) -> Unit
+    ) {
+        try {
+            val embedUrl = "https://kotakajaib.me/embed/$share"
+            val embedDoc = app.get(
+                embedUrl,
+                headers = mapOf(
+                    "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
+                    "Referer" to refererUrl
+                )
+            ).document
+
+            val kp = embedDoc.selectFirst("#kp") ?: return
+            val token = kp.attr("data-token").ifBlank { null } ?: return
+            val providers = kp.select("button[data-p]").map { it.attr("data-p") }.filter { it.isNotBlank() }
+                .ifEmpty { listOf("hydrax", "gdriveplayer") }
+
+            for (provider in providers) {
+                try {
+                    val encodedToken = URLEncoder.encode(token, "UTF-8")
+                    val sourceUrl = "https://kotakajaib.me/embed/$share/source/$provider?t=$encodedToken"
+                    val res = app.get(
+                        sourceUrl,
+                        headers = mapOf(
+                            "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
+                            "Referer" to embedUrl,
+                            "X-Requested-With" to "XMLHttpRequest"
+                        )
+                    ).text
+
+                    val resJson = JSONObject(res)
+                    var targetUrl = resJson.optString("u").trim()
+                    if (targetUrl.isBlank()) continue
+                    if (targetUrl.startsWith("//")) {
+                        targetUrl = "https:$targetUrl"
+                    }
+
+                    if (targetUrl.contains("playhydrax.com") || targetUrl.contains("abyssplayer.com")) {
+                        extractAbyss(targetUrl, embedUrl, subtitleCallback, callback)
+                    } else {
+                        loadExtractor(targetUrl, embedUrl, subtitleCallback, callback)
+                    }
+                } catch (_: Exception) {
+                }
+            }
+        } catch (_: Exception) {
+        }
+    }
+
+    private suspend fun extractAbyss(
+        embedUrl: String,
+        refererUrl: String,
+        subtitleCallback: (SubtitleFile) -> Unit,
+        callback: (ExtractorLink) -> Unit
+    ): Boolean {
+        return try {
+            val areq = app.get(
+                embedUrl,
+                headers = mapOf(
+                    "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
+                    "Referer" to refererUrl
+                )
+            ).text
+
+            val enc = Regex("""const\s+datas\s*=\s*"([^"]*)"""").find(areq)?.groupValues?.getOrNull(1) ?: return false
+
+            extractAbyssSubtitles(enc, subtitleCallback)
+
+            val jsonPayload = JSONObject().put("text", enc).toString()
+            val decRes = app.post(
+                "https://enc-dec.app/api/dec-abyss",
+                headers = mapOf(
+                    "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
+                    "Content-Type" to "application/json",
+                    "Origin" to "https://playhydrax.com",
+                    "Referer" to "https://playhydrax.com/"
+                ),
+                json = JsonAsString(jsonPayload)
+            ).text
+
+            val decJson = JSONObject(decRes)
+            val result = decJson.optJSONObject("result") ?: return false
+            val sources = result.optJSONArray("sources") ?: return false
+
+            for (i in 0 until sources.length()) {
+                val srcObj = sources.optJSONObject(i) ?: continue
+                if (!srcObj.optBoolean("status", true)) continue
+                val srcUrl = srcObj.optString("url")
+                if (srcUrl.isBlank() || !srcUrl.startsWith("http")) continue
+                val type = srcObj.optString("type")
+                val q = when {
+                    type.contains("1080") -> Qualities.P1080.value
+                    type.contains("720") -> Qualities.P720.value
+                    type.contains("480") -> Qualities.P480.value
+                    type.contains("360") -> Qualities.P360.value
+                    type.equals("Origin", true) -> Qualities.P1080.value
+                    else -> Qualities.Unknown.value
+                }
+                callback(
+                    newExtractorLink(
+                        "HydraX",
+                        "HydraX $type",
+                        srcUrl,
+                        type = ExtractorLinkType.VIDEO
+                    ) {
+                        this.quality = q
+                        this.referer = "https://abyssplayer.com/"
+                        this.headers = mapOf("Referer" to "https://abyssplayer.com/")
+                    }
+                )
+            }
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private suspend fun extractAbyssSubtitles(enc: String, subtitleCallback: (SubtitleFile) -> Unit) {
+        try {
+            val rawBytes = android.util.Base64.decode(enc, android.util.Base64.DEFAULT)
+            val rawJsonStr = String(rawBytes, Charsets.ISO_8859_1)
+            val json = JSONObject(rawJsonStr)
+            val md5Id = json.optString("md5_id")
+            if (md5Id.isBlank()) return
+
+            val subs = json.optJSONObject("config")?.optJSONArray("subtitles") ?: return
+            for (i in 0 until subs.length()) {
+                val subObj = subs.optJSONObject(i) ?: continue
+                val subSlug = subObj.optString("slug")
+                if (subSlug.isBlank()) continue
+                val subType = subObj.optString("type", "srt").ifBlank { "srt" }
+                val rawLang = subObj.optString("lang", "id").ifBlank { "id" }
+                val langLabel = when (rawLang.lowercase()) {
+                    "id", "ind", "indonesian", "indonesia" -> "Indonesian"
+                    "en", "eng", "english" -> "English"
+                    "ms", "may", "malay" -> "Malay"
+                    else -> rawLang
+                }
+                val subUrl = "https://cdn.iamcdn.net/subtitle/$md5Id/$subSlug.$subType"
+                subtitleCallback(newSubtitleFile(langLabel, subUrl))
+            }
+        } catch (_: Exception) {
+        }
     }
 }
