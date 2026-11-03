@@ -92,48 +92,17 @@ class Vidzee(private val context: Context) : ExtractorApi() {
                         }
                     }
 
-                    val displayName = "Vidzee $label"
-
-                    val qualityLinks = try {
-                        com.lagradost.cloudstream3.utils.M3u8Helper.generateM3u8(
-                            source = displayName,
-                            streamUrl = streamUrl,
-                            referer = "$mainUrl/",
-                            headers = streamHeaders
-                        )
-                    } catch (e: Exception) {
-                        println("VIDZEE $label resolusi gagal: ${e.message}")
-                        emptyList()
-                    }
-
-                    if (qualityLinks.isNotEmpty()) {
-                        qualityLinks.forEach { link ->
-                            callback(
-                                newExtractorLink(
-                                    name,
-                                    "$displayName ${link.quality}p",
-                                    link.url,
-                                    link.type
-                                ) {
-                                    this.referer = link.referer
-                                    this.quality = link.quality
-                                    this.headers = streamHeaders
-                                }
-                            )
+                    callback(
+                        newExtractorLink(
+                            name,
+                            "Vidzee $label",
+                            streamUrl,
+                            type = ExtractorLinkType.M3U8
+                        ) {
+                            this.referer = "$mainUrl/"
+                            this.headers = streamHeaders
                         }
-                    } else {
-                        callback(
-                            newExtractorLink(
-                                name,
-                                displayName,
-                                streamUrl,
-                                type = ExtractorLinkType.M3U8
-                            ) {
-                                this.referer = "$mainUrl/"
-                                this.headers = streamHeaders
-                            }
-                        )
-                    }
+                    )
                     println("VIDZEE $label berhasil")
                 } catch (e: Exception) {
                     println("VIDZEE $label gagal: ${e.message}")

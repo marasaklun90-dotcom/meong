@@ -265,15 +265,30 @@ class Kiblat21 : MainAPI() {
             }
             if (found.isNotEmpty()) {
                 found.toList().forEach { l ->
+                    if (l.name.trim().matches(Regex("""SERVER\s*2""", RegexOption.IGNORE_CASE))) {
+                        return@forEach
+                    }
                     val label = when {
                         l.name.startsWith("Vidzee ", ignoreCase = true) -> l.name
                         l.name.startsWith(server) -> l.name
                         else -> "$server - ${l.name}"
                     }
-                    val cleanLabel = label.replace(
-                        Regex("""^SERVER\s*\d+\s*[-–:]\s*""", RegexOption.IGNORE_CASE),
-                        ""
-                    ).trim()
+                    val cleanLabel = label
+                        .replace(
+                            Regex("""^SERVER\s*\d+\s*[-–:]?\s*""", RegexOption.IGNORE_CASE),
+                            ""
+                        )
+                        .replace(
+                            Regex("""(?i)\b(\d{3,4}p)\s+\1\b"""),
+                            "$1"
+                        )
+                        .trim()
+                        .ifBlank { l.source.ifBlank { "Mirror" } }
+                    if (cleanLabel.equals("SERVER 2", ignoreCase = true) ||
+                        (server.equals("SERVER 2", ignoreCase = true) &&
+                         l.name.equals("SERVER 2", ignoreCase = true))) {
+                        return@forEach
+                    }
                     callback(newExtractorLink(l.source, cleanLabel, l.url, l.type) {
                         this.referer = l.referer
                         this.quality = l.quality
