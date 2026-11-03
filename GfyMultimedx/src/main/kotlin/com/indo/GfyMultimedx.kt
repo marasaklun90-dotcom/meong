@@ -297,7 +297,8 @@ class GfyMultimedx : MainAPI() {
                         foundStream = true
                     }
                 }
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                throw ErrorLoadingException("Gagal mengambil server GFY: ${e.message}")
             }
         }
 
