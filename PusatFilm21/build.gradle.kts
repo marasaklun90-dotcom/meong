@@ -1,9 +1,13 @@
-version = 8
+version = 1
 
 cloudstream {
+    description = "PusatFilm21 - Streaming Movie and TV Series"
     language = "id"
-    authors = listOf("ExtremeBoy")
+    authors = listOf("Asm0d3usX")
     status = 1
-    tvTypes = listOf("TvSeries", "Movie")
-    iconUrl = "https://www.google.com/s2/favicons?domain=new1.pusatfilm21info.com&sz=%size%"
+    tvTypes = listOf(
+        "AsianDrama",
+        "TvSeries",
+        "Movie"
+    )
 }

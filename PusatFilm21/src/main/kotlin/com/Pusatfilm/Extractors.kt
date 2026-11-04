@@ -1,4 +1,4 @@
-package com.indo
+package com.pusatfilm
 
 import com.lagradost.cloudstream3.SubtitleFile
 import com.lagradost.cloudstream3.apmap
