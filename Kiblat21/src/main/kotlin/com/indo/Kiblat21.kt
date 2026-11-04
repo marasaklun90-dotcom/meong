@@ -179,7 +179,7 @@ class Kiblat21 : MainAPI() {
 
             val episodeCount = doc.select("span")
                 .mapNotNull {
-                    Regex("""(\\d+)\\s*episode""", RegexOption.IGNORE_CASE)
+                    Regex("""(\d+)\s*episode""", RegexOption.IGNORE_CASE)
                         .find(it.text())?.groupValues?.get(1)?.toIntOrNull()
                 }
                 .maxOrNull() ?: 0
