@@ -40,6 +40,7 @@ class GfyMultimedxPlugin : Plugin() {
                     val dialog = AlertDialog.Builder(ctx)
                         .setTitle("Login GFYMultimedx")
                         .setView(webView)
+                        .setNeutralButton("Kembali", null)
                         .setNegativeButton("Tutup", null)
                         .create()
 
@@ -49,12 +50,36 @@ class GfyMultimedxPlugin : Plugin() {
                     }
 
                     dialog.show()
+                    webView.isFocusable = true
+                    webView.isFocusableInTouchMode = true
+                    dialog.window?.clearFlags(
+                        android.view.WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM
+                    )
+                    dialog.window?.setSoftInputMode(
+                        android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+                    )
+                    webView.requestFocus()
+
+                    dialog.getButton(AlertDialog.BUTTON_NEUTRAL)?.apply {
+                        setTextColor(android.graphics.Color.WHITE)
+                        setOnClickListener {
+                            if (webView.canGoBack()) webView.goBack()
+                        }
+                    }
+                    dialog.getButton(AlertDialog.BUTTON_NEGATIVE)
+                        ?.setTextColor(android.graphics.Color.WHITE)
+
                     webView.loadUrl(
                         "https://gfymultimedx.online/akun/masuk"
                     )
                 }
                 .setNegativeButton("Batal", null)
-                .show()
+                .show().also { d ->
+                    d.getButton(AlertDialog.BUTTON_POSITIVE)
+                        ?.setTextColor(android.graphics.Color.WHITE)
+                    d.getButton(AlertDialog.BUTTON_NEGATIVE)
+                        ?.setTextColor(android.graphics.Color.WHITE)
+                }
         }
     }
 }

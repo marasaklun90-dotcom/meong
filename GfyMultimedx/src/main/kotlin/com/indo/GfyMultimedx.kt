@@ -367,6 +367,13 @@ class GfyMultimedx : MainAPI() {
                 }
 
                 dialog?.show()
+                dialog?.getButton(AlertDialog.BUTTON_NEUTRAL)
+                    ?.setTextColor(android.graphics.Color.WHITE)
+                dialog?.getButton(AlertDialog.BUTTON_NEGATIVE)
+                    ?.setTextColor(android.graphics.Color.WHITE)
+                dialog?.window?.clearFlags(
+                    android.view.WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM
+                )
                 webView.isFocusable = true
                 webView.isFocusableInTouchMode = true
                 dialog?.window?.setSoftInputMode(
