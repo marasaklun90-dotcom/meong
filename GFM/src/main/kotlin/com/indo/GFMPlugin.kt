@@ -9,9 +9,9 @@ import com.lagradost.cloudstream3.plugins.CloudstreamPlugin
 import com.lagradost.cloudstream3.plugins.Plugin
 
 @CloudstreamPlugin
-class GfyMultimedxPlugin : Plugin() {
+class GFMPlugin : Plugin() {
     override fun load(context: Context) {
-        registerMainAPI(GfyMultimedx())
+        registerMainAPI(GFM())
 
         openSettings = { ctx ->
             val cookie = CookieManager.getInstance()
@@ -22,11 +22,11 @@ class GfyMultimedxPlugin : Plugin() {
                 ?.any { it.trim().startsWith("laravel-session=") } == true
 
             AlertDialog.Builder(ctx)
-                .setTitle("Pengaturan GFYMultimedx")
+                .setTitle("Pengaturan GFM")
                 .setMessage(
                     "Cookie sesi: " +
                     (if (hasSession) "Tersedia" else "Belum tersedia") +
-                    "\nLogin email OTP melalui situs resmi GFYMultimedx."
+                    "\nLogin email OTP melalui situs resmi GFM."
                 )
                 .setPositiveButton("Login OTP") { _, _ ->
                     val webView = WebView(ctx).apply {
@@ -38,7 +38,7 @@ class GfyMultimedxPlugin : Plugin() {
                     CookieManager.getInstance().setAcceptCookie(true)
 
                     val dialog = AlertDialog.Builder(ctx)
-                        .setTitle("Login GFYMultimedx")
+                        .setTitle("Login GFM")
                         .setView(webView)
                         .setNeutralButton("Kembali", null)
                         .setNegativeButton("Tutup", null)

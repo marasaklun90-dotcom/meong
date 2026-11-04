@@ -288,133 +288,6 @@ class GfyMultimedx : MainAPI() {
         return found
     }
 
-
-    private suspend fun openPlaybackWebView(pageUrl: String): String? =
-        withContext(Dispatchers.Main) {
-            suspendCancellableCoroutine { continuation ->
-                val activity = CommonActivity.activity
-                if (activity == null || activity.isFinishing) {
-                    continuation.resume(null)
-                    return@suspendCancellableCoroutine
-                }
-
-                val webView = WebView(activity)
-                webView.settings.javaScriptEnabled = true
-                webView.settings.domStorageEnabled = true
-                CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true)
-
-                var dialog: AlertDialog? = null
-                var completed = false
-
-                fun finish(url: String?) {
-                    if (completed) return
-                    completed = true
-                    CookieManager.getInstance().flush()
-                    dialog?.dismiss()
-                    webView.destroy()
-                    if (continuation.isActive) continuation.resume(url)
-                }
-
-                webView.webViewClient = object : WebViewClient() {
-                    override fun shouldOverrideUrlLoading(
-                        view: WebView?,
-                        request: android.webkit.WebResourceRequest?
-                    ): Boolean {
-                        val url = request?.url?.toString().orEmpty()
-                        return !url.startsWith("https://") &&
-                               !url.startsWith("http://")
-                    }
-
-                    override fun shouldInterceptRequest(
-                        view: WebView?,
-                        request: android.webkit.WebResourceRequest?
-                    ): android.webkit.WebResourceResponse? {
-                        val url = request?.url?.toString().orEmpty()
-                        if (url.startsWith("https://pixeldrain.com/d/") ||
-                            url.startsWith("https://pixeldrain.com/u/")) {
-                            activity.runOnUiThread { finish(url) }
-                        }
-                        val host = request?.url?.host.orEmpty().lowercase()
-                        if (
-                            host == "imasdk.googleapis.com" ||
-                            host.endsWith(".doubleclick.net") || host == "doubleclick.net" ||
-                            host.endsWith(".googlesyndication.com") || host == "googlesyndication.com") {
-                            return android.webkit.WebResourceResponse(
-                                "text/plain", "UTF-8",
-                                java.io.ByteArrayInputStream(ByteArray(0))
-                            )
-                        }
-                        return super.shouldInterceptRequest(view, request)
-                    }
-                }
-
-                dialog = AlertDialog.Builder(activity)
-                    .setTitle("GFYMultimedx - Verifikasi Playback")
-                    .setView(webView)
-                    .setNeutralButton("Kembali", null)
-                    .setNegativeButton("Batal") { _, _ -> finish(null) }
-                    .create()
-
-                dialog?.setOnCancelListener { finish(null) }
-                continuation.invokeOnCancellation {
-                    activity.runOnUiThread {
-                        if (!completed) {
-                            completed = true
-                            dialog?.dismiss()
-                            webView.destroy()
-                        }
-                    }
-                }
-
-                dialog?.show()
-                dialog?.getButton(AlertDialog.BUTTON_NEUTRAL)
-                    ?.setTextColor(android.graphics.Color.WHITE)
-                dialog?.getButton(AlertDialog.BUTTON_NEGATIVE)
-                    ?.setTextColor(android.graphics.Color.WHITE)
-                dialog?.window?.clearFlags(
-                    android.view.WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM
-                )
-                webView.isFocusable = true
-                webView.isFocusableInTouchMode = true
-                dialog?.window?.setSoftInputMode(
-                    android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE or
-                    android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN
-                )
-
-                val autoClickHandler = android.os.Handler(android.os.Looper.getMainLooper())
-                val autoClickTask = object : Runnable {
-                    override fun run() {
-                        if (completed) return
-                        webView.evaluateJavascript(
-                            """
-                            (function() {
-                                document.querySelectorAll('button').forEach(function(b) {
-                                    var txt = (b.textContent || '').trim();
-                                    if (!b.disabled && b.offsetParent &&
-                                        /^▶\s*(Lanjutkan|Putar)/.test(txt)) {
-                                        b.click();
-                                    }
-                                });
-                            })();
-                            """.trimIndent(),
-                            null
-                        )
-                        autoClickHandler.postDelayed(this, 700)
-                    }
-                }
-                autoClickHandler.postDelayed(autoClickTask, 700)
-
-                dialog?.getButton(AlertDialog.BUTTON_NEUTRAL)?.setOnClickListener {
-                    if (webView.canGoBack()) {
-                        webView.goBack()
-                    } else {
-                        webView.loadUrl(pageUrl)
-                    }
-                }
-                webView.loadUrl(pageUrl)
-            }
-        }
-
     override suspend fun loadLinks(
         data: String,
         isCasting: Boolean,
@@ -424,6 +297,15 @@ class GfyMultimedx : MainAPI() {
         val reqHeaders = getAuthHeaders()
         val pageResp = app.get(data, headers = reqHeaders)
         val doc = pageResp.document
+        android.util.Log.d(
+            "GFY_DEBUG",
+            "loadLinks: loginRedirect=${pageResp.url.contains("/akun/masuk")}, " +
+            "deferred=${doc.select("video[data-gfy-deferred-source]").size}, " +
+            "iframe=${doc.select("iframe[src]").size}, " +
+            "video=${doc.select("video").size}, " +
+            "playButtons=${doc.select("button, a").count { it.text().contains("putar", true) || it.text().contains("play", true) }}"
+        )
+
         if (doc.select("form[data-traffic-verification]").isNotEmpty() ||
             doc.title().contains("Akun", ignoreCase = true) ||
             pageResp.url.contains("/akun/masuk")
@@ -532,17 +414,6 @@ class GfyMultimedx : MainAPI() {
             if (!src.contains("quge5") && !src.contains("adsterra") && !src.contains("highrevenueformat")) {
                 loadExtractor(src, data, subtitleCallback, callback)
                 foundStream = true
-            }
-        }
-
-        if (!foundStream) {
-            val webPixeldrainUrl = openPlaybackWebView(data)
-            if (!webPixeldrainUrl.isNullOrBlank()) {
-                foundStream = extractPixeldrain(
-                    webPixeldrainUrl,
-                    subtitleCallback,
-                    callback
-                )
             }
         }
 
