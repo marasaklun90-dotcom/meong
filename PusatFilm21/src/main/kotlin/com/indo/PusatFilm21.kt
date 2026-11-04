@@ -1,5 +1,6 @@
 package com.indo
 
+import android.webkit.CookieManager
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.nicehttp.JsonAsString
@@ -20,6 +21,18 @@ class PusatFilm21 : MainAPI() {
     override val supportedTypes = setOf(TvType.Movie, TvType.TvSeries)
 
 
+
+    private fun sessionHeaders(): Map<String, String> {
+        val cookie = runCatching {
+            CookieManager.getInstance().getCookie(mainUrl)
+        }.getOrNull()
+
+        return if (cookie.isNullOrBlank()) {
+            headers
+        } else {
+            headers + ("Cookie" to cookie)
+        }
+    }
 
     private val headers = mapOf(
         "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
@@ -148,14 +161,14 @@ class PusatFilm21 : MainAPI() {
         page: Int,
         request: MainPageRequest
     ): HomePageResponse {
-        val doc = app.get(mainUrl).document
+        val doc = app.get(mainUrl, headers = sessionHeaders()).document
         val items = categoryItems(doc, request.name)
         return newHomePageResponse(request.name, items)
     }
 
     override suspend fun search(query: String): List<SearchResponse> {
         val encoded = URLEncoder.encode(query.trim(), "UTF-8")
-        val doc = app.get("$mainUrl/search?q=$encoded").document
+        val doc = app.get("$mainUrl/search?q=$encoded", headers = sessionHeaders()).document
         return parseMovies(doc)
     }
 
