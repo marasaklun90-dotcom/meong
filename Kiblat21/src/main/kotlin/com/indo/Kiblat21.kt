@@ -176,23 +176,21 @@ class Kiblat21 : MainAPI() {
                 "^" + Regex.escape(basePath) + "/(\\d+)/?$"
             )
 
-            val episodes = doc.select("a[href*='/drama-china/']")
-                .mapNotNull { element ->
-                    val href = fixUrl(element.attr("href"))
-                    val number = episodeRegex.matchEntire(href)
-                        ?.groupValues?.get(1)?.toIntOrNull()
-                        ?: return@mapNotNull null
-                    number to href
+
+            val episodeCount = doc.select("span")
+                .mapNotNull {
+                    Regex("""(\\d+)\\s*episode""", RegexOption.IGNORE_CASE)
+                        .find(it.text())?.groupValues?.get(1)?.toIntOrNull()
                 }
-                .distinctBy { it.first }
-                .sortedBy { it.first }
-                .map { (number, href) ->
-                    newEpisode(href) {
-                        this.name = "Episode $number"
-                        this.episode = number
-                        this.season = 1
-                    }
+                .maxOrNull() ?: 0
+
+            val episodes = (1..episodeCount).map { number ->
+                newEpisode("$basePath/$number") {
+                    this.name = "Episode $number"
+                    this.episode = number
+                    this.season = 1
                 }
+            }
 
             return newTvSeriesLoadResponse(
                 title, url, TvType.TvSeries, episodes
@@ -251,6 +249,39 @@ class Kiblat21 : MainAPI() {
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ): Boolean {
+
+        // KIBLAT_DRACIN_DIRECT
+        if (data.contains("/drama-china/")) {
+            val pageUrl = data.trimEnd('/')
+            val html = app.get(pageUrl, headers = headers).text
+                .replace("\\/", "/")
+                .replace("\\\"", "\"")
+
+            val path = Regex("""/v/[A-Za-z0-9_./?%=-]{15,}""")
+                .find(html)?.value
+
+            if (path == null) {
+                println("KIBLAT21 DRACIN: URL video tidak ditemukan")
+                return false
+            }
+
+            val videoUrl = fixUrl(path)
+
+            callback(
+                newExtractorLink(
+                    "Kiblat21 Drama China",
+                    "Drama China - MP4",
+                    videoUrl,
+                    ExtractorLinkType.VIDEO
+                ) {
+                    this.referer = pageUrl
+                    this.quality = Qualities.Unknown.value
+                }
+            )
+
+            return true
+        }
+
         val watchUrl = if (
             data.contains("/series/") &&
             data.contains("/episode/")
