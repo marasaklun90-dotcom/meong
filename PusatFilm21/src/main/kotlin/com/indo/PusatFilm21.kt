@@ -71,7 +71,7 @@ class PusatFilm21 : MainAPI() {
             if (!seen.add(href)) return@mapNotNull null
 
             val img = a.selectFirst("img") ?: return@mapNotNull null
-            val title = img.attr("alt").trim()
+            val title = cleanTitle(img.attr("alt").trim())
                 .ifBlank { a.text().trim() }
 
             if (title.isBlank()) return@mapNotNull null
@@ -87,7 +87,29 @@ class PusatFilm21 : MainAPI() {
 
             newMovieSearchResponse(title, "$mainUrl$href", type) {
                 this.posterUrl = poster.ifBlank { null }
+                posterQuality(a)?.let { this.quality = it }
             }
+        }
+    }
+
+
+    private fun cleanTitle(raw: String): String = raw
+        .replace(Regex("""^Nonton\s+(?:Film|Serial)\s+""", RegexOption.IGNORE_CASE), "")
+        .replace(Regex("""\s*[|/]\s*PUSATFILM21.*$""", RegexOption.IGNORE_CASE), "")
+        .replace(Regex("""\s+Sub\s+Indo.*$""", RegexOption.IGNORE_CASE), "")
+        .replace(Regex("""\s+Subtitle\s+Indonesia.*$""", RegexOption.IGNORE_CASE), "")
+        .replace(Regex("""\s+\((?:19|20)\d{2}\)\s*$"""), "")
+        .trim()
+
+
+    private fun posterQuality(a: org.jsoup.nodes.Element): com.lagradost.cloudstream3.SearchQuality? {
+        val label = a.selectFirst("span[class*=quality-]")?.text()?.trim()?.lowercase()
+            ?: return null
+        return when {
+            "bluray" in label || "blu-ray" in label -> com.lagradost.cloudstream3.SearchQuality.BlueRay
+            "web" in label || "hdrip" in label -> com.lagradost.cloudstream3.SearchQuality.HD
+            "cam" in label -> com.lagradost.cloudstream3.SearchQuality.Cam
+            else -> null
         }
     }
 
@@ -100,7 +122,7 @@ class PusatFilm21 : MainAPI() {
                 if (!seen.add(href)) return@mapNotNull null
 
                 val img = a.selectFirst("img") ?: return@mapNotNull null
-                val title = img.attr("alt").trim()
+                val title = cleanTitle(img.attr("alt").trim())
                     .ifBlank { a.text().trim() }
 
                 if (title.isBlank()) return@mapNotNull null
@@ -117,6 +139,7 @@ class PusatFilm21 : MainAPI() {
 
                 newMovieSearchResponse(title, "$mainUrl$href", type) {
                     this.posterUrl = poster.ifBlank { null }
+                posterQuality(a)?.let { this.quality = it }
                 }
             }
     }
@@ -250,12 +273,7 @@ class PusatFilm21 : MainAPI() {
                 !it.equals("serial", true)
             } ?: doc.selectFirst("h1")?.text()?.trim().orEmpty()
 
-        val title = rawTitle
-            .replace(Regex("""^Nonton\\s+(?:Film|Serial)?\\s*""", RegexOption.IGNORE_CASE), "")
-            .replace(Regex("""\\s+Sub\\s+Indo.*$""", RegexOption.IGNORE_CASE), "")
-            .replace(Regex("""\\s+Subtitle\\s+Indonesia.*$""", RegexOption.IGNORE_CASE), "")
-            .replace(Regex("""\\s*[|/]\\s*PUSATFILM21.*$""", RegexOption.IGNORE_CASE), "")
-            .trim()
+        val title = cleanTitle(rawTitle)
         val poster = doc.selectFirst("meta[property=og:image]")
             ?.attr("content")
             ?.ifBlank { null }
