@@ -334,7 +334,19 @@ class GfyMultimedx : MainAPI() {
                             activity.runOnUiThread { finish(url) }
                         }
                         val host = request?.url?.host.orEmpty().lowercase()
-                        if (host == "imasdk.googleapis.com" ||
+                        val extraAdHosts = listOf(
+                            "googleadservices.com",
+                            "adservice.google.com",
+                            "adnxs.com",
+                            "pubmatic.com",
+                            "rubiconproject.com",
+                            "openx.net",
+                            "criteo.com",
+                            "taboola.com",
+                            "outbrain.com"
+                        )
+                        if (extraAdHosts.any { host == it || host.endsWith(".$it") } ||
+                            host == "imasdk.googleapis.com" ||
                             host.endsWith(".doubleclick.net") || host == "doubleclick.net" ||
                             host.endsWith(".googlesyndication.com") || host == "googlesyndication.com") {
                             return android.webkit.WebResourceResponse(
@@ -376,7 +388,7 @@ class GfyMultimedx : MainAPI() {
                                 document.querySelectorAll('button').forEach(function(b) {
                                     var txt = (b.textContent || '').trim();
                                     if (!b.disabled && b.offsetParent &&
-                                        /^▶\\s*(Lanjutkan|Putar)/.test(txt)) {
+                                        /^▶\s*(Lanjutkan|Putar)/.test(txt)) {
                                         b.click();
                                     }
                                 });
