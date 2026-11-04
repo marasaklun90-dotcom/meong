@@ -601,8 +601,10 @@ class GfyMultimedx : MainAPI() {
         doc.select("iframe.external-embed, .player iframe, iframe[src]").forEach { iframe ->
             val src = fixUrlNull(iframe.attr("src")) ?: return@forEach
             if (!src.contains("quge5") && !src.contains("adsterra") && !src.contains("highrevenueformat")) {
-                loadExtractor(src, data, subtitleCallback, callback)
-                foundStream = true
+                val extracted = loadExtractor(
+                    src, data, subtitleCallback, callback
+                )
+                if (extracted) foundStream = true
             }
         }
 
