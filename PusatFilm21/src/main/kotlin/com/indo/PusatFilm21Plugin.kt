@@ -2,8 +2,9 @@ package com.indo
 
 import android.app.AlertDialog
 import android.content.Context
-import android.content.Intent
-import android.net.Uri
+import android.webkit.WebView
+import android.webkit.WebViewClient
+import android.webkit.CookieManager
 import com.lagradost.cloudstream3.plugins.CloudstreamPlugin
 import com.lagradost.cloudstream3.plugins.Plugin
 
@@ -17,11 +18,27 @@ class PusatFilm21Plugin : Plugin() {
                 .setTitle("Pengaturan PusatFilm21")
                 .setMessage("Login menggunakan akun Google melalui situs resmi PusatFilm21.")
                 .setPositiveButton("Login Google") { _, _ ->
-                    val intent = Intent(
-                        Intent.ACTION_VIEW,
-                        Uri.parse("https://new1.pusatfilm21info.com/auth/login")
-                    )
-                    ctx.startActivity(intent)
+                    val webView = WebView(ctx).apply {
+                        settings.javaScriptEnabled = true
+                        settings.domStorageEnabled = true
+                        webViewClient = WebViewClient()
+                    }
+
+                    CookieManager.getInstance().setAcceptCookie(true)
+
+                    val loginDialog = AlertDialog.Builder(ctx)
+                        .setTitle("Login PusatFilm21")
+                        .setView(webView)
+                        .setNegativeButton("Tutup", null)
+                        .create()
+
+                    loginDialog.setOnDismissListener {
+                        CookieManager.getInstance().flush()
+                        webView.destroy()
+                    }
+
+                    webView.loadUrl("https://new1.pusatfilm21info.com/auth/login")
+                    loginDialog.show()
                 }
                 .setNegativeButton("Batal", null)
                 .show()
