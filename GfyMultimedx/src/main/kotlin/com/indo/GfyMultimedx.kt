@@ -309,6 +309,7 @@ class GfyMultimedx : MainAPI() {
                 fun finish(url: String?) {
                     if (completed) return
                     completed = true
+                    CookieManager.getInstance().flush()
                     dialog?.dismiss()
                     webView.destroy()
                     if (continuation.isActive) continuation.resume(url)
@@ -334,18 +335,7 @@ class GfyMultimedx : MainAPI() {
                             activity.runOnUiThread { finish(url) }
                         }
                         val host = request?.url?.host.orEmpty().lowercase()
-                        val extraAdHosts = listOf(
-                            "googleadservices.com",
-                            "adservice.google.com",
-                            "adnxs.com",
-                            "pubmatic.com",
-                            "rubiconproject.com",
-                            "openx.net",
-                            "criteo.com",
-                            "taboola.com",
-                            "outbrain.com"
-                        )
-                        if (extraAdHosts.any { host == it || host.endsWith(".$it") } ||
+                        if (
                             host == "imasdk.googleapis.com" ||
                             host.endsWith(".doubleclick.net") || host == "doubleclick.net" ||
                             host.endsWith(".googlesyndication.com") || host == "googlesyndication.com") {
@@ -377,6 +367,12 @@ class GfyMultimedx : MainAPI() {
                 }
 
                 dialog?.show()
+                webView.isFocusable = true
+                webView.isFocusableInTouchMode = true
+                dialog?.window?.setSoftInputMode(
+                    android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE or
+                    android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN
+                )
 
                 val autoClickHandler = android.os.Handler(android.os.Looper.getMainLooper())
                 val autoClickTask = object : Runnable {
