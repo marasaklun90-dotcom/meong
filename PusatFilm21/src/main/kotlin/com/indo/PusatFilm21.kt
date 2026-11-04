@@ -294,8 +294,40 @@ class PusatFilm21 : MainAPI() {
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ): Boolean {
-        val pageText = app.get(data, headers = headers).text
+        val response = app.get(data, headers = headers)
+        val pageText = response.text
 
+        // Metode CloudX: cari iframe langsung di HTML
+        val iframeEl = response.document.selectFirst(
+            "div.gmr-embed-responsive iframe, div.movieplay iframe, iframe"
+        )
+        val iframeUrl = listOf("src", "data-src", "data-litespeed-src")
+            .firstNotNullOfOrNull { key ->
+                iframeEl?.attr(key)?.takeIf { it.isNotBlank() }
+            }
+            ?.let { raw ->
+                when {
+                    raw.startsWith("//") -> "https:$raw"
+                    raw.startsWith("/") -> java.net.URI(data).resolve(raw).toString()
+                    else -> raw
+                }
+            }
+
+        if (!iframeUrl.isNullOrBlank() && iframeUrl.startsWith("http")) {
+            val share = Regex(
+                """kotakajaib\\.me/(?:embed|file)/([a-zA-Z0-9_-]+)"""
+            ).find(iframeUrl)?.groupValues?.getOrNull(1)
+
+            if (!share.isNullOrBlank()) {
+                extractKotakAjaib(share, data, subtitleCallback, callback)
+                return true
+            }
+
+            loadExtractor(iframeUrl, data, subtitleCallback, callback)
+            return true
+        }
+
+        // Metode lama tetap menjadi fallback
         val unescaped = pageText.replace("\\\"", "\"").replace("\\/", "/")
 
         val activeShare = Regex("""["']embedUrl["']:\s*["']https?://kotakajaib\.me/(?:embed|file)/([a-zA-Z0-9_-]+)""").find(unescaped)?.groupValues?.getOrNull(1)
