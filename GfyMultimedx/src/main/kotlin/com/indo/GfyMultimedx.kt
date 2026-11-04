@@ -314,14 +314,67 @@ class GfyMultimedx : MainAPI() {
                     if (continuation.isActive) continuation.resume(url)
                 }
 
+                // GFY_SMART_ADBLOCK: hanya blokir host iklan yang diketahui.
+                val blockedAdHosts = setOf(
+                    "pyppo.com",
+                    "adsterra.com",
+                    "highrevenuegate.com",
+                    "highrevenueformat.com"
+                )
+
+                fun isBlockedAd(url: String): Boolean {
+                    val host = try {
+                        android.net.Uri.parse(url).host?.lowercase().orEmpty()
+                    } catch (_: Exception) {
+                        ""
+                    }
+                    return blockedAdHosts.any {
+                        host == it || host.endsWith(".$it")
+                    }
+                }
+
+                webView.settings.javaScriptCanOpenWindowsAutomatically = false
+                webView.settings.setSupportMultipleWindows(false)
+
+
+                // GFY_AUTO_PIXELDRAIN: periksa URL yang sudah tersedia.
+                fun checkPixeldrain() {
+                    if (completed) return
+                    webView.evaluateJavascript(
+                        """(function() {
+                            const urls = Array.from(
+                                document.querySelectorAll('iframe[src], a[href]')
+                            ).map(e => e.src || e.href);
+                            return urls.find(u =>
+                                /^https:\\/\\/pixeldrain\\.com\\/(d|u)\\//i.test(u)
+                            ) || '';
+                        })();"""
+                    ) { result ->
+                        val url = try {
+                            org.json.JSONTokener(result).nextValue() as? String
+                        } catch (_: Exception) {
+                            null
+                        }
+                        if (!url.isNullOrBlank() && !completed) {
+                            finish(url)
+                        }
+                    }
+                }
+
                 webView.webViewClient = object : WebViewClient() {
+                    override fun onPageFinished(view: WebView?, url: String?) {
+                        super.onPageFinished(view, url)
+                        checkPixeldrain()
+                    }
+
+
                     override fun shouldOverrideUrlLoading(
                         view: WebView?,
                         request: android.webkit.WebResourceRequest?
                     ): Boolean {
                         val url = request?.url?.toString().orEmpty()
-                        return !url.startsWith("https://") &&
-                               !url.startsWith("http://")
+                        return isBlockedAd(url) || (!url.startsWith("https://") &&
+                               !url.startsWith("http://"))
                     }
 
                     override fun shouldInterceptRequest(
@@ -332,6 +385,13 @@ class GfyMultimedx : MainAPI() {
                         if (url.startsWith("https://pixeldrain.com/d/") ||
                             url.startsWith("https://pixeldrain.com/u/")) {
                             activity.runOnUiThread { finish(url) }
+                        }
+                        if (isBlockedAd(url)) {
+                            return android.webkit.WebResourceResponse(
+                                "text/plain",
+                                "UTF-8",
+                                java.io.ByteArrayInputStream(ByteArray(0))
+                            )
                         }
                         return super.shouldInterceptRequest(view, request)
                     }
