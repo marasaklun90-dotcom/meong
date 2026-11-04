@@ -196,6 +196,87 @@ class GfyMultimedx : MainAPI() {
         }
     }
 
+
+    private suspend fun extractPixeldrain(
+        url: String,
+        subtitleCallback: (SubtitleFile) -> Unit,
+        callback: (ExtractorLink) -> Unit
+    ): Boolean {
+        val parsed = try {
+            java.net.URI(url)
+        } catch (_: Exception) {
+            return false
+        }
+
+        if (parsed.host != "pixeldrain.com") return false
+
+        val parts = parsed.path.trim('/').split("/")
+        if (parts.size < 2) return false
+
+        if (parts[0] == "u") {
+            val id = parts[1]
+            if (!id.matches(Regex("[A-Za-z0-9]{6,64}"))) return false
+
+            callback(
+                newExtractorLink(
+                    "Pixeldrain",
+                    "Pixeldrain",
+                    "https://pixeldrain.com/api/file/$id",
+                    type = ExtractorLinkType.VIDEO
+                ) {
+                    this.referer = "https://pixeldrain.com/"
+                }
+            )
+            return true
+        }
+
+        if (parts[0] != "d") return false
+
+        val id = parts[1]
+        if (!id.matches(Regex("[A-Za-z0-9]{6,64}"))) return false
+
+        val api = "https://pixeldrain.com/api/filesystem/$id"
+        val json = JSONObject(app.get(api).text)
+        val children = json.optJSONArray("children") ?: return false
+
+        var found = false
+
+        for (i in 0 until children.length()) {
+            val item = children.optJSONObject(i) ?: continue
+            if (item.optString("type") != "file") continue
+
+            val path = item.optString("path")
+            if (path.isBlank()) continue
+
+            val encoded = path.split("/").joinToString("/") {
+                java.net.URLEncoder.encode(it, "UTF-8")
+                    .replace("+", "%20")
+            }
+
+            val fileUrl = "https://pixeldrain.com/api/filesystem$encoded"
+            val lower = path.lowercase()
+
+            if (lower.endsWith(".mp4") || lower.endsWith(".mkv")) {
+                callback(
+                    newExtractorLink(
+                        "Pixeldrain",
+                        "Pixeldrain",
+                        fileUrl,
+                        type = ExtractorLinkType.VIDEO
+                    ) {
+                        this.referer = "https://pixeldrain.com/"
+                        this.quality = Qualities.P1080.value
+                    }
+                )
+                found = true
+            } else if (lower.endsWith(".srt") || lower.endsWith(".vtt")) {
+                subtitleCallback(newSubtitleFile("Indonesian", fileUrl))
+            }
+        }
+
+        return found
+    }
+
     override suspend fun loadLinks(
         data: String,
         isCasting: Boolean,
@@ -255,9 +336,14 @@ class GfyMultimedx : MainAPI() {
 
                 val json = JSONObject(postResp)
                 val streamUrl = json.optString("url")
+                if (json.optString("type") == "pixeldrain-viewer") {
+                    if (extractPixeldrain(streamUrl, subtitleCallback, callback)) {
+                        foundStream = true
+                    }
+                }
                 val isHls = json.optString("type") == "hls" || streamUrl.contains(".m3u8")
 
-                if (streamUrl.isNotBlank() && streamUrl.startsWith("http")) {
+                if (!foundStream && json.optString("type") != "pixeldrain-viewer" && streamUrl.startsWith("http")) {
                     if (isHls) {
                         try {
                             val m3u8Links = M3u8Helper.generateM3u8(this.name, streamUrl, mainUrl)
@@ -318,6 +404,16 @@ class GfyMultimedx : MainAPI() {
             }
         }
 
+        if (!foundStream) {
+            throw ErrorLoadingException(
+                "GFY DEBUG: " +
+                "login=${pageResp.url.contains("/akun/masuk")}, " +
+                "deferred=${doc.select("video[data-gfy-deferred-source]").size}, " +
+                "iframe=${doc.select("iframe[src]").size}, " +
+                "video=${doc.select("video").size}, " +
+                "pixeldrain=${doc.html().contains("pixeldrain", true)}"
+            )
+        }
         return foundStream
     }
 }
