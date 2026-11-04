@@ -165,6 +165,43 @@ class Kiblat21 : MainAPI() {
         val poster = doc.selectFirst("meta[property=og:image]")?.attr("content")
         val plot = doc.selectFirst("meta[property=og:description]")?.attr("content")
 
+
+        // Drama China episodes
+        if (url.contains("/drama-china/")) {
+            val basePath = url.substringBefore("?")
+                .trimEnd('/')
+                .replace(Regex("/\\d+$"), "")
+
+            val episodeRegex = Regex(
+                "^" + Regex.escape(basePath) + "/(\\d+)/?$"
+            )
+
+            val episodes = doc.select("a[href*='/drama-china/']")
+                .mapNotNull { element ->
+                    val href = fixUrl(element.attr("href"))
+                    val number = episodeRegex.matchEntire(href)
+                        ?.groupValues?.get(1)?.toIntOrNull()
+                        ?: return@mapNotNull null
+                    number to href
+                }
+                .distinctBy { it.first }
+                .sortedBy { it.first }
+                .map { (number, href) ->
+                    newEpisode(href) {
+                        this.name = "Episode $number"
+                        this.episode = number
+                        this.season = 1
+                    }
+                }
+
+            return newTvSeriesLoadResponse(
+                title, url, TvType.TvSeries, episodes
+            ) {
+                this.posterUrl = poster
+                this.plot = plot
+            }
+        }
+
         if (url.contains("/series/")) {
             val episodeRegex = Regex(
                 """/season/(\d+)/episode/(\d+)"""
