@@ -361,6 +361,55 @@ class GfyMultimedx : MainAPI() {
                     }
                 }
 
+
+                // GFY_AUTO_SKIP_V9: klik tombol Skip resmi saat aktif.
+                val skipHandler = android.os.Handler(
+                    android.os.Looper.getMainLooper()
+                )
+
+                val skipTask = object : Runnable {
+                    override fun run() {
+                        if (completed || !continuation.isActive) return
+
+                        checkPixeldrain()
+
+                        webView.evaluateJavascript(
+                            """(function() {
+                                const elements = Array.from(
+                                    document.querySelectorAll(
+                                        'button, a, [role="button"]'
+                                    )
+                                );
+                                const button = elements.find(el => {
+                                    const text = (
+                                        el.innerText || el.textContent || ''
+                                    ).trim().toLowerCase();
+                                    const visible = !!(
+                                        el.getClientRects().length
+                                    );
+                                    const disabled =
+                                        el.disabled ||
+                                        el.getAttribute('aria-disabled') === 'true';
+                                    return visible && !disabled &&
+                                        /^(skip ad|skip ads|lewati iklan|skip iklan|lewati)$/.test(text);
+                                });
+                                if (button) {
+                                    button.click();
+                                    return 'clicked';
+                                }
+                                return 'waiting';
+                            })();""",
+                            null
+                        )
+
+                        skipHandler.postDelayed(this, 1500L)
+                    }
+                }
+
+                continuation.invokeOnCancellation {
+                    skipHandler.removeCallbacks(skipTask)
+                }
+
                 webView.webViewClient = object : WebViewClient() {
                     override fun onPageFinished(view: WebView?, url: String?) {
                         super.onPageFinished(view, url)
@@ -423,6 +472,7 @@ class GfyMultimedx : MainAPI() {
                         webView.loadUrl(pageUrl)
                     }
                 }
+                skipHandler.postDelayed(skipTask, 1500L)
                 webView.loadUrl(pageUrl)
             }
         }
