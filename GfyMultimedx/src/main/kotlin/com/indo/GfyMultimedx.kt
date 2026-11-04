@@ -365,6 +365,30 @@ class GfyMultimedx : MainAPI() {
                 }
 
                 dialog?.show()
+
+                val autoClickHandler = android.os.Handler(android.os.Looper.getMainLooper())
+                val autoClickTask = object : Runnable {
+                    override fun run() {
+                        if (completed) return
+                        webView.evaluateJavascript(
+                            """
+                            (function() {
+                                document.querySelectorAll('button').forEach(function(b) {
+                                    var txt = (b.textContent || '').trim();
+                                    if (!b.disabled && b.offsetParent &&
+                                        /^▶\\s*(Lanjutkan|Putar)/.test(txt)) {
+                                        b.click();
+                                    }
+                                });
+                            })();
+                            """.trimIndent(),
+                            null
+                        )
+                        autoClickHandler.postDelayed(this, 700)
+                    }
+                }
+                autoClickHandler.postDelayed(autoClickTask, 700)
+
                 dialog?.getButton(AlertDialog.BUTTON_NEUTRAL)?.setOnClickListener {
                     if (webView.canGoBack()) {
                         webView.goBack()
