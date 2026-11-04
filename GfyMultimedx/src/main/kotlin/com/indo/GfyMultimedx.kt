@@ -7,6 +7,15 @@ import com.lagradost.cloudstream3.utils.M3u8Helper
 import com.lagradost.cloudstream3.utils.Qualities
 import com.lagradost.cloudstream3.utils.loadExtractor
 import com.lagradost.cloudstream3.utils.newExtractorLink
+import com.lagradost.cloudstream3.CommonActivity
+import android.app.AlertDialog
+import android.webkit.WebView
+import android.webkit.WebViewClient
+import android.webkit.CookieManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
 import org.json.JSONObject
 import org.jsoup.nodes.Element
 
@@ -14,6 +23,8 @@ class GfyMultimedx : MainAPI() {
     override var mainUrl = "https://gfymultimedx.online"
     override var name = "GfyMultimedx"
     override val hasMainPage = true
+    override val loadLinksTimeoutMs: Long = 300_000L
+
     override var lang = "id"
     override val hasDownloadSupport = true
     override val supportedTypes = setOf(TvType.Movie, TvType.TvSeries, TvType.Anime)
@@ -277,6 +288,68 @@ class GfyMultimedx : MainAPI() {
         return found
     }
 
+
+    private suspend fun openPlaybackWebView(pageUrl: String): String? =
+        withContext(Dispatchers.Main) {
+            suspendCancellableCoroutine { continuation ->
+                val activity = CommonActivity.activity
+                if (activity == null || activity.isFinishing) {
+                    continuation.resume(null)
+                    return@suspendCancellableCoroutine
+                }
+
+                val webView = WebView(activity)
+                webView.settings.javaScriptEnabled = true
+                webView.settings.domStorageEnabled = true
+                CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true)
+
+                var dialog: AlertDialog? = null
+                var completed = false
+
+                fun finish(url: String?) {
+                    if (completed) return
+                    completed = true
+                    dialog?.dismiss()
+                    webView.destroy()
+                    if (continuation.isActive) continuation.resume(url)
+                }
+
+                webView.webViewClient = object : WebViewClient() {
+                    override fun shouldInterceptRequest(
+                        view: WebView?,
+                        request: android.webkit.WebResourceRequest?
+                    ): android.webkit.WebResourceResponse? {
+                        val url = request?.url?.toString().orEmpty()
+                        if (url.startsWith("https://pixeldrain.com/d/") ||
+                            url.startsWith("https://pixeldrain.com/u/")) {
+                            activity.runOnUiThread { finish(url) }
+                        }
+                        return super.shouldInterceptRequest(view, request)
+                    }
+                }
+
+                dialog = AlertDialog.Builder(activity)
+                    .setTitle("GFYMultimedx - Verifikasi Playback")
+                    .setView(webView)
+                    .setNegativeButton("Batal") { _, _ -> finish(null) }
+                    .create()
+
+                dialog?.setOnCancelListener { finish(null) }
+                continuation.invokeOnCancellation {
+                    activity.runOnUiThread {
+                        if (!completed) {
+                            completed = true
+                            dialog?.dismiss()
+                            webView.destroy()
+                        }
+                    }
+                }
+
+                dialog?.show()
+                webView.loadUrl(pageUrl)
+            }
+        }
+
     override suspend fun loadLinks(
         data: String,
         isCasting: Boolean,
@@ -323,11 +396,13 @@ class GfyMultimedx : MainAPI() {
         if (!deferredSource.isNullOrBlank()) {
             try {
                 val endpoint = fixUrl(deferredSource)
+                val csrf = video?.attr("data-gfy-deferred-csrf").orEmpty()
                 val postResp = app.post(
                     endpoint,
                     headers = mapOf(
                         "Accept" to "application/json",
                         "X-Requested-With" to "XMLHttpRequest",
+                        "X-CSRF-TOKEN" to csrf,
                         "Referer" to data,
                         "Origin" to mainUrl
                     ),
@@ -401,6 +476,17 @@ class GfyMultimedx : MainAPI() {
             if (!src.contains("quge5") && !src.contains("adsterra") && !src.contains("highrevenueformat")) {
                 loadExtractor(src, data, subtitleCallback, callback)
                 foundStream = true
+            }
+        }
+
+        if (!foundStream) {
+            val webPixeldrainUrl = openPlaybackWebView(data)
+            if (!webPixeldrainUrl.isNullOrBlank()) {
+                foundStream = extractPixeldrain(
+                    webPixeldrainUrl,
+                    subtitleCallback,
+                    callback
+                )
             }
         }
 
