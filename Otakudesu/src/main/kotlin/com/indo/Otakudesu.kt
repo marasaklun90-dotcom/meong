@@ -155,6 +155,7 @@ class Otakudesu : MainAPI() {
                     val src = Jsoup.parse(base64Decode(enc)).selectFirst("iframe")?.attr("src")
                         ?: return@forEach
                     if (src.contains("maintenance")) return@forEach
+                    android.util.Log.d("OtakuMirror", "MIRROR=$label SRC=$src")
 
                     if (src.contains("desustream.net/dstream")) {
                         val video = app.get(src, headers = ua, referer = mainUrl).document
@@ -278,7 +279,12 @@ class Otakudesu : MainAPI() {
                             loadExtractor(fixedUrl, data, subtitleCallback, callback)
                         }
                     }
-                    else -> loadExtractor(fixedUrl, data, subtitleCallback, callback)
+                    else -> loadExtractor(fixedUrl, data, subtitleCallback) { link ->
+                            if (link.name.contains("VidHidePro", ignoreCase = true) && quality != Qualities.Unknown.value) {
+                                link.quality = quality
+                            }
+                            callback(link)
+                        }
                     }
                 }
             }
