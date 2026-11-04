@@ -50,20 +50,30 @@ class GFM : MainAPI() {
     }
 
     override val mainPage = mainPageOf(
-        "$mainUrl/film" to "Film Terbaru",
-        "$mainUrl/serial" to "Serial TV",
-        "$mainUrl/anime" to "Anime",
-        "$mainUrl/genre/action" to "Action",
-        "$mainUrl/genre/horror" to "Horor",
-        "$mainUrl/genre/drama" to "Drama",
-        "$mainUrl/genre/comedy" to "Komedi",
-        "$mainUrl/genre/thriller" to "Thriller"
+        "$mainUrl/" to "Film Unggulan",
+        "$mainUrl/?shelf=action" to "Film Action",
+        "$mainUrl/?shelf=horor-barat" to "Horor & Thriller Barat",
+        "$mainUrl/?shelf=horor-asia" to "Horor & Thriller Asia",
+        "$mainUrl/?shelf=drama-barat" to "Drama Barat",
+        "$mainUrl/?shelf=drama-asia" to "Drama Asia",
+        "$mainUrl/?shelf=film-asia" to "Film Asia",
+        "$mainUrl/?shelf=terbaru" to "Film Terbaru Berdasarkan Tahun"
     )
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
-        val url = if (page <= 1) request.data else "${request.data}?page=$page"
-        val doc = app.get(url, headers = headers).document
-        val items = doc.select("a.web-media-link, a[href*='/film/']").mapNotNull { toSearchResponse(it) }
+        if (page > 1) return newHomePageResponse(request.name, emptyList<SearchResponse>())
+
+        val doc = app.get("$mainUrl/", headers = getAuthHeaders()).document
+
+        val section = doc.select("section.cinema-shelf").firstOrNull {
+            it.selectFirst("h2")?.text()?.trim() == request.name
+        }
+
+        val items = section
+            ?.select(".cinema-shelf__track a.web-media-link")
+            ?.mapNotNull { toSearchResponse(it) }
+            ?: emptyList()
+
         return newHomePageResponse(request.name, items)
     }
 
