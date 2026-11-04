@@ -240,8 +240,8 @@ class Kiblat21 : MainAPI() {
                 this.posterUrl = poster
                 this.plot = listOfNotNull(
                     rating?.let { "⭐ $it/10" },
-                    duration?.let { "Durasi: $it" },
-                    plot
+                    duration?.let { "🕒 Durasi: $it" },
+                    plot?.let { "SINOPSIS\n$it" }
                 ).joinToString("\n\n")
                 this.year = year
             }
@@ -281,8 +281,8 @@ class Kiblat21 : MainAPI() {
                 this.posterUrl = poster
                 this.plot = listOfNotNull(
                     rating?.let { "⭐ $it/10" },
-                    duration?.let { "Durasi: $it" },
-                    plot
+                    duration?.let { "🕒 Durasi: $it" },
+                    plot?.let { "SINOPSIS\n$it" }
                 ).joinToString("\n\n")
                 this.year = year
             }
@@ -292,8 +292,8 @@ class Kiblat21 : MainAPI() {
             this.posterUrl = poster
             this.plot = listOfNotNull(
                     rating?.let { "⭐ $it/10" },
-                    duration?.let { "Durasi: $it" },
-                    plot
+                    duration?.let { "🕒 Durasi: $it" },
+                    plot?.let { "SINOPSIS\n$it" }
                 ).joinToString("\n\n")
                 this.year = year
         }
