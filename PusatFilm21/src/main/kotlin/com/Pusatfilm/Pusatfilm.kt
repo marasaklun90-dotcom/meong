@@ -23,44 +23,52 @@ class Pusatfilm : MainAPI() {
     override val supportedTypes =
         setOf(TvType.Movie, TvType.TvSeries, TvType.Anime, TvType.AsianDrama)
 
-    override val mainPage =
-        mainPageOf(
-            "film-terbaru/page/%d/" to "Terbaru",
-            "trending/page/%d/" to "Trending",
-            "series-terbaru/page/%d/" to "TV Series",
-            "genre/action/page/%d/" to "Action",
-            "genre/animation/page/%d/" to "Animation",
-            "genre/comedy/page/%d/" to "Comedy",
-            "genre/drama/page/%d/" to "Drama",
-            "genre/fantasy/page/%d/" to "Fantasy",
-            "genre/horror/page/%d/" to "Horror",
-            "genre/romance/page/%d/" to "Romance",
-            "genre/war/page/%d/" to "War",
-            "country/china/page/%d/" to "China",
-            "country/japan/page/%d/" to "Japan",
-            "country/philippines/page/%d/" to "Philippines",
-            "country/thailand/page/%d/" to "Thailand"
-        )
 
-    private suspend fun loadMainUrlIfNeeded() {
-        if (directUrl != null) return
-        try {
-            val response = app.get(mainUrlJson).text
-            val json = JSONObject(response)
-            val array = json.optJSONArray("pusatfilm")
-            val newUrl = array?.optString(0)?.removeSuffix("/")
+    override val mainPage = mainPageOf(
+        "trending" to "Sedang Trending",
+        "netflix" to "Netflix Originals",
+        "indonesia" to "Film Indonesia",
+        "korea" to "Drama Korea",
+        "movies" to "Film Baru Ditambahkan",
+        "series" to "Serial TV Baru Ditambahkan",
+        "episodes" to "Episode Terbaru"
+    )
 
-            if (!newUrl.isNullOrBlank()) {
-                mainUrl = newUrl
-                directUrl = newUrl
+    override suspend fun getMainPage(
+        page: Int,
+        request: MainPageRequest
+    ): HomePageResponse {
+        val document = app.get("https://new1.pusatfilm21info.com/").document
+
+        val items = document.select("a[href^='/movie/'], a[href^='/series/']")
+            .mapNotNull { element ->
+                val href = element.attr("href")
+                if (href.contains("/season/")) return@mapNotNull null
+
+                val title = element.attr("title").ifBlank {
+                    element.selectFirst("img")?.attr("alt").orEmpty()
+                }.ifBlank {
+                    href.substringAfterLast("/").replace("-", " ")
+                }
+
+                val poster = element.selectFirst("img")?.let {
+                    it.attr("src").ifBlank { it.attr("data-src") }
+                }
+
+                val url = "https://new1.pusatfilm21info.com$href"
+
+                if (href.startsWith("/series/")) {
+                    newAnimeSearchResponse(title, url, TvType.TvSeries) {
+                        posterUrl = poster
+                    }
+                } else {
+                    newMovieSearchResponse(title, url, TvType.Movie) {
+                        posterUrl = poster
+                    }
+                }
             }
-        } catch (_: Exception) { }
-    }
+            .distinctBy { it.url }
 
-    override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
-        loadMainUrlIfNeeded()
-        val document = app.get("$mainUrl/${request.data.format(page)}").document
-        val items = document.select("article.item").mapNotNull { it.toSearchResult() }
         return newHomePageResponse(request.name, items)
     }
 
@@ -95,6 +103,12 @@ class Pusatfilm : MainAPI() {
         return newAnimeSearchResponse(title, href, TvType.TvSeries) {
             this.posterUrl = posterUrl
         }
+    }
+
+
+    private suspend fun loadMainUrlIfNeeded() {
+        mainUrl = "https://new1.pusatfilm21info.com"
+        directUrl = mainUrl
     }
 
     override suspend fun search(query: String): List<SearchResponse> {
