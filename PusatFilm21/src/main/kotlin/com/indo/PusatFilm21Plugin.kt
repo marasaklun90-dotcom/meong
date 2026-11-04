@@ -16,7 +16,14 @@ class PusatFilm21Plugin : Plugin() {
         openSettings = { ctx ->
             AlertDialog.Builder(ctx)
                 .setTitle("Pengaturan PusatFilm21")
-                .setMessage("Login menggunakan akun Google melalui situs resmi PusatFilm21.")
+                .setMessage(
+                    "Status cookie: " +
+                    (if (CookieManager.getInstance()
+                            .getCookie("https://new1.pusatfilm21info.com")
+                            .isNullOrBlank()
+                    ) "Belum tersedia" else "Tersedia") +
+                    "\\nLogin menggunakan akun Google melalui situs resmi PusatFilm21."
+                )
                 .setPositiveButton("Login Google") { _, _ ->
                     val webView = WebView(ctx).apply {
                         settings.javaScriptEnabled = true

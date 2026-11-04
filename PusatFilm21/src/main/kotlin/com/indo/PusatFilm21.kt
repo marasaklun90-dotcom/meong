@@ -1,5 +1,7 @@
 package com.indo
 
+import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.MediaType.Companion.toMediaType
 import android.webkit.CookieManager
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.ExtractorLink
@@ -326,6 +328,56 @@ class PusatFilm21 : MainAPI() {
         callback: (ExtractorLink) -> Unit
     ): Boolean {
         val pageText = app.get(data, headers = sessionHeaders()).text
+
+
+        // Server Action: ambil embed URL menggunakan sesi login WebView.
+        if (data.contains("/series/") && data.contains("/episode/")) {
+            val gateText = pageText.replace("\\\"", "\"")
+            val gate = Regex(
+                """"gate"\s*:\s*\{\s*"titleId"\s*:\s*(\d+)\s*,\s*"episodeId"\s*:\s*(\d+)"""
+            ).find(gateText)
+
+            if (gate != null) {
+                val titleId = gate.groupValues[1].toInt()
+                val episodeId = gate.groupValues[2].toInt()
+
+                try {
+                    val actionHeaders = sessionHeaders() + mapOf(
+                        "Next-Action" to "604a474fa2b11e5b2cabf2631d077a1da728794f0e",
+                        "Accept" to "text/x-component",
+                        "Content-Type" to "text/plain;charset=UTF-8",
+                        "Origin" to mainUrl,
+                        "Referer" to data
+                    )
+
+                    val response = app.post(
+                        data,
+                        headers = actionHeaders,
+                        requestBody = "[$titleId,$episodeId]".toRequestBody("text/plain;charset=UTF-8".toMediaType())
+                    ).text
+
+                    val normalized = response.replace("\\\"", "\"").replace("\\/", "/")
+                    val embed = Regex(
+                        """"embedUrl"\s*:\s*"([^"]+)""""
+                    ).find(normalized)?.groupValues?.getOrNull(1)
+
+                    if (!embed.isNullOrBlank() && embed.startsWith("http")) {
+                        val share = Regex(
+                            """kotakajaib\.me/(?:embed|file)/([a-zA-Z0-9_-]+)"""
+                        ).find(embed)?.groupValues?.getOrNull(1)
+
+                        if (share != null) {
+                            extractKotakAjaib(share, data, subtitleCallback, callback)
+                        } else {
+                            loadExtractor(embed, data, subtitleCallback, callback)
+                        }
+                        return true
+                    }
+                } catch (_: Exception) {
+                    // Fallback ke metode lama.
+                }
+            }
+        }
 
         val unescaped = pageText.replace("\\\"", "\"").replace("\\/", "/")
 
