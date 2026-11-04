@@ -315,6 +315,15 @@ class GfyMultimedx : MainAPI() {
                 }
 
                 webView.webViewClient = object : WebViewClient() {
+                    override fun shouldOverrideUrlLoading(
+                        view: WebView?,
+                        request: android.webkit.WebResourceRequest?
+                    ): Boolean {
+                        val url = request?.url?.toString().orEmpty()
+                        return !url.startsWith("https://") &&
+                               !url.startsWith("http://")
+                    }
+
                     override fun shouldInterceptRequest(
                         view: WebView?,
                         request: android.webkit.WebResourceRequest?
@@ -331,6 +340,7 @@ class GfyMultimedx : MainAPI() {
                 dialog = AlertDialog.Builder(activity)
                     .setTitle("GFYMultimedx - Verifikasi Playback")
                     .setView(webView)
+                    .setNeutralButton("Kembali", null)
                     .setNegativeButton("Batal") { _, _ -> finish(null) }
                     .create()
 
@@ -346,6 +356,13 @@ class GfyMultimedx : MainAPI() {
                 }
 
                 dialog?.show()
+                dialog?.getButton(AlertDialog.BUTTON_NEUTRAL)?.setOnClickListener {
+                    if (webView.canGoBack()) {
+                        webView.goBack()
+                    } else {
+                        webView.loadUrl(pageUrl)
+                    }
+                }
                 webView.loadUrl(pageUrl)
             }
         }
