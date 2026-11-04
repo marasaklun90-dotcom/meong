@@ -1,292 +1,174 @@
 package com.indo
 
 import com.lagradost.cloudstream3.*
-import com.lagradost.cloudstream3.utils.ExtractorLink
-import com.lagradost.nicehttp.JsonAsString
-import com.lagradost.cloudstream3.utils.newExtractorLink
-import com.lagradost.cloudstream3.utils.Qualities
-import com.lagradost.cloudstream3.utils.ExtractorLinkType
+import com.lagradost.cloudstream3.LoadResponse.Companion.addActors
+import com.lagradost.cloudstream3.LoadResponse.Companion.addTrailer
+import com.lagradost.cloudstream3.LoadResponse.Companion.addScore
+import com.lagradost.cloudstream3.utils.httpsify
 import com.lagradost.cloudstream3.utils.loadExtractor
+import com.lagradost.cloudstream3.utils.ExtractorLink
+import com.lagradost.cloudstream3.SubtitleFile
 import org.jsoup.nodes.Element
-import java.net.URLEncoder
-import org.json.JSONArray
 import org.json.JSONObject
+import java.net.URI
 
 class PusatFilm21 : MainAPI() {
-    override var mainUrl = "https://new1.pusatfilm21info.com"
+
+    override var mainUrl = "https://pf21.net"
+    private val mainUrlJson = "https://raw.githubusercontent.com/Asm0d3usX/CloudX/builds/Website.json"
+    private var directUrl: String? = null
     override var name = "PusatFilm21"
-    override var lang = "id"
     override val hasMainPage = true
-    override val supportedTypes = setOf(TvType.Movie, TvType.TvSeries)
+    override var lang = "id"
+    override val supportedTypes =
+        setOf(TvType.Movie, TvType.TvSeries, TvType.Anime, TvType.AsianDrama)
 
+    override val mainPage =
+        mainPageOf(
+            "film-terbaru/page/%d/" to "Terbaru",
+            "trending/page/%d/" to "Trending",
+            "series-terbaru/page/%d/" to "TV Series",
+            "genre/action/page/%d/" to "Action",
+            "genre/animation/page/%d/" to "Animation",
+            "genre/comedy/page/%d/" to "Comedy",
+            "genre/drama/page/%d/" to "Drama",
+            "genre/fantasy/page/%d/" to "Fantasy",
+            "genre/horror/page/%d/" to "Horror",
+            "genre/romance/page/%d/" to "Romance",
+            "genre/war/page/%d/" to "War",
+            "country/china/page/%d/" to "China",
+            "country/japan/page/%d/" to "Japan",
+            "country/philippines/page/%d/" to "Philippines",
+            "country/thailand/page/%d/" to "Thailand"
+        )
 
+    private suspend fun loadMainUrlIfNeeded() {
+        if (directUrl != null) return
+        try {
+            val response = app.get(mainUrlJson).text
+            val json = JSONObject(response)
+            val array = json.optJSONArray("pusatfilm")
+            val newUrl = array?.optString(0)?.removeSuffix("/")
 
-    private val headers = mapOf(
-        "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
-        "Referer" to "$mainUrl/"
-    )
-
-    private val homeCategories = listOf(
-        "Sedang Trending",
-        "Netflix Originals",
-        "Film Indonesia",
-        "Drama Korea",
-        "Film Baru Ditambahkan",
-        "Serial TV Baru Ditambahkan"
-    )
-
-    override val mainPage = mainPageOf(
-        *homeCategories.map { mainUrl to it }.toTypedArray()
-    )
-
-    private fun categoryItems(
-        doc: org.jsoup.nodes.Document,
-        category: String
-    ): List<SearchResponse> {
-        val heading = doc.select("h2").firstOrNull {
-            it.text().trim() == category
-        } ?: return emptyList()
-
-        var container: org.jsoup.nodes.Element = heading
-        var links = emptyList<org.jsoup.nodes.Element>()
-
-        for (level in 1..4) {
-            val parent = container.parent() ?: break
-            container = parent
-
-            val found = container.select(
-                "a[href^='/movie/'], a[href^='/series/']"
-            ).filter { it.selectFirst("img") != null }
-
-            if (found.isNotEmpty()) {
-                links = found
-                break
+            if (!newUrl.isNullOrBlank()) {
+                mainUrl = newUrl
+                directUrl = newUrl
             }
-        }
-
-        val seen = mutableSetOf<String>()
-
-        return links.mapNotNull { a ->
-            val href = a.attr("href")
-            if (!seen.add(href)) return@mapNotNull null
-
-            val img = a.selectFirst("img") ?: return@mapNotNull null
-            val title = img.attr("alt").trim()
-                .ifBlank { a.text().trim() }
-
-            if (title.isBlank()) return@mapNotNull null
-
-            val poster = img.attr("src")
-                .ifBlank { img.attr("data-src") }
-
-            val type = if (href.startsWith("/series/")) {
-                TvType.TvSeries
-            } else {
-                TvType.Movie
-            }
-
-            newMovieSearchResponse(title, "$mainUrl$href", type) {
-                this.posterUrl = poster.ifBlank { null }
-            }
-        }
+        } catch (_: Exception) { }
     }
 
-    private fun parseMovies(doc: org.jsoup.nodes.Document): List<SearchResponse> {
-        val seen = mutableSetOf<String>()
-
-        return doc.select("a[href^='/movie/'], a[href^='/tv/'], a[href^='/series/']")
-            .mapNotNull { a ->
-                val href = a.attr("href")
-                if (!seen.add(href)) return@mapNotNull null
-
-                val img = a.selectFirst("img") ?: return@mapNotNull null
-                val title = img.attr("alt").trim()
-                    .ifBlank { a.text().trim() }
-
-                if (title.isBlank()) return@mapNotNull null
-
-                val poster = img.attr("src").ifBlank {
-                    img.attr("data-src")
-                }
-
-                val type = if (href.startsWith("/series/")) {
-                    TvType.TvSeries
-                } else {
-                    TvType.Movie
-                }
-
-                newMovieSearchResponse(title, "$mainUrl$href", type) {
-                    this.posterUrl = poster.ifBlank { null }
-                }
-            }
-    }
-
-    override suspend fun getMainPage(
-        page: Int,
-        request: MainPageRequest
-    ): HomePageResponse {
-        val doc = app.get(mainUrl).document
-        val items = categoryItems(doc, request.name)
+    override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
+        loadMainUrlIfNeeded()
+        val document = app.get("$mainUrl/${request.data.format(page)}").document
+        val items = document.select("article.item").mapNotNull { it.toSearchResult() }
         return newHomePageResponse(request.name, items)
     }
 
-    override suspend fun search(query: String): List<SearchResponse> {
-        val encoded = URLEncoder.encode(query.trim(), "UTF-8")
-        val doc = app.get("$mainUrl/search?q=$encoded").document
-        return parseMovies(doc)
-    }
+    private fun Element.toSearchResult(): SearchResponse? {
+        val title = this.selectFirst("h2.entry-title > a")?.text()?.trim() ?: return null
+        val href = fixUrl(this.selectFirst("a")!!.attr("href"))
+        val posterUrl = fixUrlNull(this.selectFirst("a > img")?.getImageAttr()).fixImageQuality()
+        val quality = this.select("div.gmr-qual, div.gmr-quality-item > a").text().trim().replace("-", "")
+        val rating = selectFirst(".gmr-rating-item")?.ownText()?.trim()?.toFloatOrNull()
+        val epsText = selectFirst(".gmr-quality-item.tag-episode a")?.text()?.trim()
+        val eps = Regex("E(\\d+)", RegexOption.IGNORE_CASE).find(epsText ?: "")?.groupValues?.get(1)?.toIntOrNull()
 
-
-    private fun parseSeriesEpisodes(
-        doc: org.jsoup.nodes.Document,
-        seriesUrl: String
-    ): List<Episode> {
-        val slug = seriesUrl.substringAfter("/series/").substringBefore("/")
-        val episodes = mutableListOf<Episode>()
-
-        for (script in doc.select("script")) {
-            val raw = script.data()
-            if (!raw.contains("self.__next_f.push")) continue
-
-            val chunks = Regex("""self\.__next_f\.push\((\[.*?\])\)""")
-                .findAll(raw)
-
-            for (chunk in chunks) {
-                try {
-                    val flight = JSONArray(chunk.groupValues[1])
-                    val content = flight.optString(1)
-                    val key = "\"seasons\":"
-                    val start = content.indexOf(key)
-                    if (start < 0) continue
-
-                    val arrayStart = start + key.length
-                    if (content.getOrNull(arrayStart) != '[') continue
-
-                    var depth = 0
-                    var inString = false
-                    var escaped = false
-                    var end = -1
-
-                    for (i in arrayStart until content.length) {
-                        val c = content[i]
-                        if (escaped) {
-                            escaped = false
-                            continue
-                        }
-                        if (c == '\\' && inString) {
-                            escaped = true
-                            continue
-                        }
-                        if (c == '"') {
-                            inString = !inString
-                            continue
-                        }
-                        if (!inString) {
-                            if (c == '[') depth++
-                            if (c == ']') {
-                                depth--
-                                if (depth == 0) {
-                                    end = i + 1
-                                    break
-                                }
-                            }
-                        }
-                    }
-
-                    if (end < 0) continue
-
-                    val seasons = JSONArray(content.substring(arrayStart, end))
-
-                    for (i in 0 until seasons.length()) {
-                        val season = seasons.optJSONObject(i) ?: continue
-                        val seasonNum = season.optInt("number", 0)
-                        if (seasonNum <= 0) continue
-
-                        val eps = season.optJSONArray("episodes") ?: continue
-
-                        for (j in 0 until eps.length()) {
-                            val ep = eps.optJSONObject(j) ?: continue
-                            val epNum = ep.optInt("number", 0)
-                            if (epNum <= 0) continue
-
-                            val epName = ep.optString("name")
-                                .ifBlank { "Episode $epNum" }
-
-                            val epUrl =
-                                "$mainUrl/series/$slug/season/$seasonNum/episode/$epNum"
-
-                            episodes.add(newEpisode(epUrl) {
-                                this.name = epName
-                                this.season = seasonNum
-                                this.episode = epNum
-                            })
-                        }
-                    }
-
-                    if (episodes.isNotEmpty()) {
-                        return episodes.distinctBy { it.data }
-                    }
-                } catch (_: Exception) {
-                }
+        return if (quality.isEmpty()) {
+            newAnimeSearchResponse(title, href, TvType.TvSeries) {
+                this.posterUrl = posterUrl
+                addSub(eps)
+            }
+        } else {
+            newMovieSearchResponse(title, href, TvType.Movie) {
+                this.posterUrl = posterUrl
+                if (rating != null) this.score = Score.from10(rating)
+                addQuality(quality)
             }
         }
+    }
+    
+    private fun Element.toRecommendResult(): SearchResponse? {
+        val title = this.selectFirst(".idmuvi-rp-title")?.text()?.trim() ?: return null
+        val href = fixUrl(this.selectFirst("a")!!.attr("href"))
+        val posterUrl = fixUrlNull(this.selectFirst("a > img")?.getImageAttr()).fixImageQuality()
 
-        return episodes
+        return newAnimeSearchResponse(title, href, TvType.TvSeries) {
+            this.posterUrl = posterUrl
+        }
+    }
+
+    override suspend fun search(query: String): List<SearchResponse> {
+        loadMainUrlIfNeeded()
+        val document = app.get("$mainUrl/?s=$query&post_type[]=post&post_type[]=tv", timeout = 50L).document
+        return document.select("article.item").mapNotNull { it.toSearchResult() }
     }
 
     override suspend fun load(url: String): LoadResponse {
-        val doc = app.get(url).document
+        loadMainUrlIfNeeded()
+        val fetch = app.get(url)
+        val document = fetch.document
 
+        val title = document.selectFirst("h1.entry-title")
+            ?.text()
+            ?.substringBefore("Season")
+            ?.substringBefore("Episode")
+            ?.trim()
+            .toString()
+        val poster = fixUrlNull(document.selectFirst("figure.pull-left > img")?.getImageAttr()?.fixImageQuality())
+        val tags = document.select("div.gmr-moviedata a").map { it.text() }
+        val year = document.select("div.gmr-moviedata strong:contains(Year:) > a").text().trim().toIntOrNull()
+        val tvType = if (url.contains("/tv/")) TvType.TvSeries else TvType.Movie
+        val description = document.selectFirst("div[itemprop=description] > p")?.text()?.trim()
+        val trailer = document.selectFirst("ul.gmr-player-nav li a.gmr-trailer-popup")?.attr("href")
+        val rating = document.selectFirst("div.gmr-meta-rating > span[itemprop=ratingValue]")?.text()?.trim()
+        val actors = document.select("div.gmr-moviedata").last()?.select("span[itemprop=actors]")?.map { it.select("a").text() }
+        val recommendations = document.select("ul > li").mapNotNull { it.toRecommendResult() }
+        val duration = document.selectFirst("div.gmr-moviedata span[property=duration]")
+            ?.text()
+            ?.replace(Regex("\\D"), "")
+            ?.toIntOrNull()
 
-        val ogTitle = doc.selectFirst("meta[property=og:title]")
-            ?.attr("content")?.trim().orEmpty()
+        return if (tvType == TvType.TvSeries) {
+            val episodes = document.select("div.vid-episodes a, div.gmr-listseries a")
+                .map { eps ->
+                    val href = fixUrl(eps.attr("href"))
+                    val name = eps.text()
+                    val episode = name.split(" ").lastOrNull()?.filter { it.isDigit() }?.toIntOrNull()
+                    val season = name.split(" ").firstOrNull()?.filter { it.isDigit() }?.toIntOrNull()
+                    newEpisode(href) {
+                        this.name = "Episode $episode"
+                        this.season = if (name.contains(" ")) season else null
+                        this.episode = episode
+                        this.posterUrl = poster
+                    }
+                }
+                .filter { it.episode != null }
 
-        val pageTitle = doc.title().trim()
-
-        val rawTitle = listOf(ogTitle, pageTitle)
-            .firstOrNull {
-                it.isNotBlank() &&
-                !it.equals("film", true) &&
-                !it.equals("serial", true)
-            } ?: doc.selectFirst("h1")?.text()?.trim().orEmpty()
-
-        val title = rawTitle
-            .replace(Regex("""^Nonton\\s+(?:Film|Serial)?\\s*""", RegexOption.IGNORE_CASE), "")
-            .replace(Regex("""\\s+Sub\\s+Indo.*$""", RegexOption.IGNORE_CASE), "")
-            .replace(Regex("""\\s+Subtitle\\s+Indonesia.*$""", RegexOption.IGNORE_CASE), "")
-            .replace(Regex("""\\s*[|/]\\s*PUSATFILM21.*$""", RegexOption.IGNORE_CASE), "")
-            .trim()
-        val poster = doc.selectFirst("meta[property=og:image]")
-            ?.attr("content")
-            ?.ifBlank { null }
-            ?: doc.selectFirst("img[alt]")?.attr("src")
-
-        val plot = doc.selectFirst("meta[property=og:description]")
-            ?.attr("content")
-            ?.ifBlank { null }
-
-        val year = Regex("""(?:19|20)\d{2}""")
-            .find(url.substringAfterLast("/"))
-            ?.value?.toIntOrNull()
-
-        if (url.contains("/series/")) {
-            val episodes = parseSeriesEpisodes(doc, url)
-            return newTvSeriesLoadResponse(
-                title, url, TvType.TvSeries, episodes
-            ) {
+            newTvSeriesLoadResponse(title, url, TvType.TvSeries, episodes) {
                 this.posterUrl = poster
-                this.plot = plot
                 this.year = year
+                this.plot = description
+                this.tags = tags
+                addScore(rating)
+                this.duration = duration ?: 0
+                this.recommendations = recommendations
+                addActors(actors)
+                addTrailer(trailer)
+            }
+        } else {
+            newMovieLoadResponse(title, url, TvType.Movie, url) {
+                this.posterUrl = poster
+                this.year = year
+                this.plot = description
+                this.tags = tags
+                addScore(rating)
+                this.duration = duration ?: 0
+                this.recommendations = recommendations
+                addActors(actors)
+                addTrailer(trailer)
             }
         }
-
-        return newMovieLoadResponse(title, url, TvType.Movie, url) {
-            this.posterUrl = poster
-            this.plot = plot
-            this.year = year
-        }
     }
-
 
     override suspend fun loadLinks(
         data: String,
@@ -294,207 +176,36 @@ class PusatFilm21 : MainAPI() {
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ): Boolean {
-        val response = app.get(data, headers = headers)
-        val pageText = response.text
+        loadMainUrlIfNeeded()
+        val document = app.get(data).document
+        val iframeEl = document.selectFirst("div.gmr-embed-responsive iframe, div.movieplay iframe, iframe")
+        val iframe = listOf("src", "data-src", "data-litespeed-src")
+            .firstNotNullOfOrNull { key -> iframeEl?.attr(key)?.takeIf { it.isNotBlank() } }
+            ?.let { httpsify(it) }
 
-        // Metode CloudX: cari iframe langsung di HTML
-        val iframeEl = response.document.selectFirst(
-            "div.gmr-embed-responsive iframe, div.movieplay iframe, iframe"
-        )
-        val iframeUrl = listOf("src", "data-src", "data-litespeed-src")
-            .firstNotNullOfOrNull { key ->
-                iframeEl?.attr(key)?.takeIf { it.isNotBlank() }
-            }
-            ?.let { raw ->
-                when {
-                    raw.startsWith("//") -> "https:$raw"
-                    raw.startsWith("/") -> java.net.URI(data).resolve(raw).toString()
-                    else -> raw
-                }
-            }
-
-        if (!iframeUrl.isNullOrBlank() && iframeUrl.startsWith("http")) {
-            val share = Regex(
-                """kotakajaib\\.me/(?:embed|file)/([a-zA-Z0-9_-]+)"""
-            ).find(iframeUrl)?.groupValues?.getOrNull(1)
-
-            if (!share.isNullOrBlank()) {
-                extractKotakAjaib(share, data, subtitleCallback, callback)
-                return true
-            }
-
-            loadExtractor(iframeUrl, data, subtitleCallback, callback)
-            return true
+        if (!iframe.isNullOrBlank()) {
+            val refererBase = runCatching { getBaseUrl(iframe) }.getOrDefault(mainUrl) + "/"
+            loadExtractor(iframe, refererBase, subtitleCallback, callback)
         }
-
-        // Metode lama tetap menjadi fallback
-        val unescaped = pageText.replace("\\\"", "\"").replace("\\/", "/")
-
-        val activeShare = Regex("""["']embedUrl["']:\s*["']https?://kotakajaib\.me/(?:embed|file)/([a-zA-Z0-9_-]+)""").find(unescaped)?.groupValues?.getOrNull(1)
-
-        val shares = if (!activeShare.isNullOrBlank()) {
-            listOf(activeShare)
-        } else {
-            Regex("""kotakajaib\.me/(?:embed|file)/([a-zA-Z0-9_-]+)""").findAll(unescaped)
-                .map { it.groupValues[1] }
-                .distinct()
-                .take(2)
-                .toList()
-        }
-
-        for (share in shares) {
-            extractKotakAjaib(share, data, subtitleCallback, callback)
-        }
-
         return true
     }
 
-    private suspend fun extractKotakAjaib(
-        share: String,
-        refererUrl: String,
-        subtitleCallback: (SubtitleFile) -> Unit,
-        callback: (ExtractorLink) -> Unit
-    ) {
-        try {
-            val embedUrl = "https://kotakajaib.me/embed/$share"
-            val embedDoc = app.get(
-                embedUrl,
-                headers = mapOf(
-                    "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
-                    "Referer" to refererUrl
-                )
-            ).document
-
-            val kp = embedDoc.selectFirst("#kp") ?: return
-            val token = kp.attr("data-token").ifBlank { null } ?: return
-            val providers = kp.select("button[data-p]").map { it.attr("data-p") }.filter { it.isNotBlank() }
-                .ifEmpty { listOf("hydrax", "gdriveplayer") }
-
-            for (provider in providers) {
-                try {
-                    val encodedToken = URLEncoder.encode(token, "UTF-8")
-                    val sourceUrl = "https://kotakajaib.me/embed/$share/source/$provider?t=$encodedToken"
-                    val res = app.get(
-                        sourceUrl,
-                        headers = mapOf(
-                            "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
-                            "Referer" to embedUrl,
-                            "X-Requested-With" to "XMLHttpRequest"
-                        )
-                    ).text
-
-                    val resJson = JSONObject(res)
-                    var targetUrl = resJson.optString("u").trim()
-                    if (targetUrl.isBlank()) continue
-                    if (targetUrl.startsWith("//")) {
-                        targetUrl = "https:$targetUrl"
-                    }
-
-                    if (targetUrl.contains("playhydrax.com") || targetUrl.contains("abyssplayer.com")) {
-                        extractAbyss(targetUrl, embedUrl, subtitleCallback, callback)
-                    } else {
-                        loadExtractor(targetUrl, embedUrl, subtitleCallback, callback)
-                    }
-                } catch (_: Exception) {
-                }
-            }
-        } catch (_: Exception) {
+    private fun Element.getImageAttr(): String {
+        return when {
+            this.hasAttr("data-src") -> this.attr("abs:data-src")
+            this.hasAttr("data-lazy-src") -> this.attr("abs:data-lazy-src")
+            this.hasAttr("srcset") -> this.attr("abs:srcset").substringBefore(" ")
+            else -> this.attr("abs:src")
         }
     }
 
-    private suspend fun extractAbyss(
-        embedUrl: String,
-        refererUrl: String,
-        subtitleCallback: (SubtitleFile) -> Unit,
-        callback: (ExtractorLink) -> Unit
-    ): Boolean {
-        return try {
-            val areq = app.get(
-                embedUrl,
-                headers = mapOf(
-                    "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
-                    "Referer" to refererUrl
-                )
-            ).text
-
-            val enc = Regex("""const\s+datas\s*=\s*"([^"]*)"""").find(areq)?.groupValues?.getOrNull(1) ?: return false
-
-            extractAbyssSubtitles(enc, subtitleCallback)
-
-            val jsonPayload = JSONObject().put("text", enc).toString()
-            val decRes = app.post(
-                "https://enc-dec.app/api/dec-abyss",
-                headers = mapOf(
-                    "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
-                    "Content-Type" to "application/json",
-                    "Origin" to "https://playhydrax.com",
-                    "Referer" to "https://playhydrax.com/"
-                ),
-                json = JsonAsString(jsonPayload)
-            ).text
-
-            val decJson = JSONObject(decRes)
-            val result = decJson.optJSONObject("result") ?: return false
-            val sources = result.optJSONArray("sources") ?: return false
-
-            for (i in 0 until sources.length()) {
-                val srcObj = sources.optJSONObject(i) ?: continue
-                if (!srcObj.optBoolean("status", true)) continue
-                val srcUrl = srcObj.optString("url")
-                if (srcUrl.isBlank() || !srcUrl.startsWith("http")) continue
-                val type = srcObj.optString("type")
-                val q = when {
-                    type.contains("1080") -> Qualities.P1080.value
-                    type.contains("720") -> Qualities.P720.value
-                    type.contains("480") -> Qualities.P480.value
-                    type.contains("360") -> Qualities.P360.value
-                    type.equals("Origin", true) -> Qualities.P1080.value
-                    else -> Qualities.Unknown.value
-                }
-                callback(
-                    newExtractorLink(
-                        "HydraX",
-                        "HydraX $type",
-                        srcUrl,
-                        type = ExtractorLinkType.VIDEO
-                    ) {
-                        this.quality = q
-                        this.referer = "https://abyssplayer.com/"
-                        this.headers = mapOf("Referer" to "https://abyssplayer.com/")
-                    }
-                )
-            }
-            true
-        } catch (_: Exception) {
-            false
-        }
+    private fun String?.fixImageQuality(): String? {
+        if (this == null) return null
+        val regex = Regex("(-\\d*x\\d*)").find(this)?.groupValues?.get(0) ?: return this
+        return this.replace(regex, "")
     }
 
-    private suspend fun extractAbyssSubtitles(enc: String, subtitleCallback: (SubtitleFile) -> Unit) {
-        try {
-            val rawBytes = android.util.Base64.decode(enc, android.util.Base64.DEFAULT)
-            val rawJsonStr = String(rawBytes, Charsets.ISO_8859_1)
-            val json = JSONObject(rawJsonStr)
-            val md5Id = json.optString("md5_id")
-            if (md5Id.isBlank()) return
-
-            val subs = json.optJSONObject("config")?.optJSONArray("subtitles") ?: return
-            for (i in 0 until subs.length()) {
-                val subObj = subs.optJSONObject(i) ?: continue
-                val subSlug = subObj.optString("slug")
-                if (subSlug.isBlank()) continue
-                val subType = subObj.optString("type", "srt").ifBlank { "srt" }
-                val rawLang = subObj.optString("lang", "id").ifBlank { "id" }
-                val langLabel = when (rawLang.lowercase()) {
-                    "id", "ind", "indonesian", "indonesia" -> "Indonesian"
-                    "en", "eng", "english" -> "English"
-                    "ms", "may", "malay" -> "Malay"
-                    else -> rawLang
-                }
-                val subUrl = "https://cdn.iamcdn.net/subtitle/$md5Id/$subSlug.$subType"
-                subtitleCallback(newSubtitleFile(langLabel, subUrl))
-            }
-        } catch (_: Exception) {
-        }
+    private fun getBaseUrl(url: String): String {
+        return URI(url).let { "${it.scheme}://${it.host}" }
     }
 }
