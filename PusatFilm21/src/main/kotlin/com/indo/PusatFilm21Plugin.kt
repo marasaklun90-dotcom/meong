@@ -6,7 +6,6 @@ import com.lagradost.cloudstream3.plugins.Plugin
 
 @CloudstreamPlugin
 class PusatFilm21Plugin : Plugin() {
-
     override fun load(context: Context) {
         registerMainAPI(PusatFilm21())
         registerExtractorAPI(Kotakajaib())
