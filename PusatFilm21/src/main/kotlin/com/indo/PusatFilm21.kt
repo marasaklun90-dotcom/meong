@@ -315,11 +315,11 @@ class PusatFilm21 : MainAPI() {
 
         if (!iframeUrl.isNullOrBlank() && iframeUrl.startsWith("http")) {
             val share = Regex(
-                """kotakajaib\\.me/(?:embed|file)/([a-zA-Z0-9_-]+)"""
+                """kotakajaib\.me/(?:embed|file)/([a-zA-Z0-9_-]+)"""
             ).find(iframeUrl)?.groupValues?.getOrNull(1)
 
             if (!share.isNullOrBlank()) {
-                extractKotakAjaib(share, data, subtitleCallback, callback)
+                loadExtractor("https://kotakajaib.me/embed/$share", data, subtitleCallback, callback)
                 return true
             }
 
@@ -343,7 +343,7 @@ class PusatFilm21 : MainAPI() {
         }
 
         for (share in shares) {
-            extractKotakAjaib(share, data, subtitleCallback, callback)
+            loadExtractor("https://kotakajaib.me/embed/$share", data, subtitleCallback, callback)
         }
 
         return true
