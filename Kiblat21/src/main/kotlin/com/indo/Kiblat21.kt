@@ -162,9 +162,51 @@ class Kiblat21 : MainAPI() {
     override suspend fun load(url: String): LoadResponse {
         val doc = app.get(url, headers = headers).document
         val title = doc.selectFirst("h1")?.text()?.trim() ?: "Kiblat21"
-        val poster = doc.selectFirst("meta[property=og:image]")?.attr("content")
-        val plot = doc.selectFirst("meta[property=og:description]")?.attr("content")
+        // JSON-LD metadata, dengan fallback ke HTML
+        val movieJson = doc.select("script[type='application/ld+json']")
+            .mapNotNull { element ->
+                runCatching { JSONObject(element.data()) }.getOrNull()
+            }
+            .firstOrNull { it.optString("@type") == "Movie" }
 
+        val poster = movieJson?.optString("image")
+            ?.takeIf { it.startsWith("http") }
+            ?: doc.selectFirst("div[class*=aspect-] img[alt]")?.attr("src")
+                ?.takeIf { it.isNotBlank() }
+            ?: doc.selectFirst("meta[property=og:image]")?.attr("content")
+
+        val plot = movieJson?.optString("description")
+            ?.takeIf { it.isNotBlank() }
+            ?: doc.selectFirst("p.mt-5.leading-relaxed")?.text()
+                ?.takeIf { it.isNotBlank() }
+            ?: doc.selectFirst("meta[property=og:description]")?.attr("content")
+
+        val info = doc.selectFirst("h1")?.parent()
+
+        val rating = movieJson?.optJSONObject("aggregateRating")
+            ?.optDouble("ratingValue", Double.NaN)
+            ?.takeUnless { it.isNaN() }
+            ?: info?.selectFirst("span.font-bold.text-text-primary")
+                ?.ownText()?.trim()?.toDoubleOrNull()
+
+        val durationMinutes = Regex("""PT(\d+)M""")
+            .find(movieJson?.optString("duration").orEmpty())
+            ?.groupValues?.get(1)?.toIntOrNull()
+
+        val duration = durationMinutes?.let {
+            "${it / 60}j ${it % 60}m"
+        } ?: doc.select("dl div").firstOrNull {
+            it.selectFirst("dt")?.text()?.trim()
+                ?.equals("Durasi", ignoreCase = true) == true
+        }?.selectFirst("dd")?.text()?.trim()
+
+        val release = doc.select("dl div").firstOrNull {
+            it.selectFirst("dt")?.text()?.trim()
+                ?.equals("Rilis", ignoreCase = true) == true
+        }?.selectFirst("dd")?.text()?.trim()
+
+        val year = Regex("""\b(19|20)\d{2}\b""")
+            .find(release ?: title)?.value?.toIntOrNull()
 
         // Drama China episodes
         if (url.contains("/drama-china/")) {
@@ -196,7 +238,12 @@ class Kiblat21 : MainAPI() {
                 title, url, TvType.TvSeries, episodes
             ) {
                 this.posterUrl = poster
-                this.plot = plot
+                this.plot = listOfNotNull(
+                    rating?.let { "⭐ $it/10" },
+                    duration?.let { "Durasi: $it" },
+                    plot
+                ).joinToString("\n\n")
+                this.year = year
             }
         }
 
@@ -232,13 +279,23 @@ class Kiblat21 : MainAPI() {
 
             return newTvSeriesLoadResponse(title, url, TvType.TvSeries, episodes) {
                 this.posterUrl = poster
-                this.plot = plot
+                this.plot = listOfNotNull(
+                    rating?.let { "⭐ $it/10" },
+                    duration?.let { "Durasi: $it" },
+                    plot
+                ).joinToString("\n\n")
+                this.year = year
             }
         }
 
         return newMovieLoadResponse(title, url, TvType.Movie, url) {
             this.posterUrl = poster
-            this.plot = plot
+            this.plot = listOfNotNull(
+                    rating?.let { "⭐ $it/10" },
+                    duration?.let { "Durasi: $it" },
+                    plot
+                ).joinToString("\n\n")
+                this.year = year
         }
     }
 
