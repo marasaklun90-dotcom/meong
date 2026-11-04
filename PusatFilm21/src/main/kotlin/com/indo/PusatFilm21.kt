@@ -325,7 +325,7 @@ class PusatFilm21 : MainAPI() {
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ): Boolean {
-        val pageText = app.get(data, headers = headers).text
+        val pageText = app.get(data, headers = sessionHeaders()).text
 
         val unescaped = pageText.replace("\\\"", "\"").replace("\\/", "/")
 
