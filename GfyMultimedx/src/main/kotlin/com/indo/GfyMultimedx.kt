@@ -205,6 +205,14 @@ class GfyMultimedx : MainAPI() {
         val reqHeaders = getAuthHeaders()
         val pageResp = app.get(data, headers = reqHeaders)
         val doc = pageResp.document
+        android.util.Log.d(
+            "GFY_DEBUG",
+            "loadLinks: loginRedirect=${pageResp.url.contains("/akun/masuk")}, " +
+            "deferred=${doc.select("video[data-gfy-deferred-source]").size}, " +
+            "iframe=${doc.select("iframe[src]").size}, " +
+            "video=${doc.select("video").size}, " +
+            "playButtons=${doc.select("button, a").count { it.text().contains("putar", true) || it.text().contains("play", true) }}"
+        )
 
         if (doc.select("form[data-traffic-verification]").isNotEmpty() ||
             doc.title().contains("Akun", ignoreCase = true) ||
