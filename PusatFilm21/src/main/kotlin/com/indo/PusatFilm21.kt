@@ -49,6 +49,22 @@ class PusatFilm21 : MainAPI() {
         val cookies = response.headers.values("Set-Cookie")
         if (cookies.isEmpty()) return
 
+        val path = runCatching {
+            android.net.Uri.parse(url).path.orEmpty()
+        }.getOrDefault("")
+
+        if (
+            path.startsWith("/auth/") ||
+            path == "/login" ||
+            path == "/masuk"
+        ) return
+
+        val existingCookie = runCatching {
+            CookieManager.getInstance().getCookie(mainUrl)
+        }.getOrNull()
+
+        if (existingCookie.isNullOrBlank()) return
+
         kotlinx.coroutines.withContext(
             kotlinx.coroutines.Dispatchers.Main
         ) {
@@ -363,7 +379,11 @@ class PusatFilm21 : MainAPI() {
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ): Boolean {
-        val pageText = app.get(data, headers = sessionHeaders()).text
+        val pageResponse = app.get(data, headers = sessionHeaders())
+        val pageText = pageResponse.text
+        if (!pageResponse.url.contains("/auth/login")) {
+            syncAuthCookies(pageResponse)
+        }
 
 
         // Server Action: ambil embed URL menggunakan sesi login WebView.
@@ -386,11 +406,13 @@ class PusatFilm21 : MainAPI() {
                         "Referer" to data
                     )
 
-                    val response = app.post(
+                    val actionResponse = app.post(
                         data,
                         headers = actionHeaders,
                         requestBody = "[$titleId,$episodeId]".toRequestBody("text/plain;charset=UTF-8".toMediaType())
-                    ).text
+                    )
+                    syncAuthCookies(actionResponse)
+                    val response = actionResponse.text
 
                     val normalized = response.replace("\\\"", "\"").replace("\\/", "/")
                     val embed = Regex(
