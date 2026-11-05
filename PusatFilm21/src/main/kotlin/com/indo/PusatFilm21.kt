@@ -36,6 +36,30 @@ class PusatFilm21 : MainAPI() {
         }
     }
 
+    private suspend fun syncAuthCookies(
+        response: com.lagradost.nicehttp.NiceResponse
+    ) {
+        val url = response.url
+        val host = runCatching {
+            android.net.Uri.parse(url).host?.lowercase()
+        }.getOrNull()
+
+        if (host != "new1.pusatfilm21info.com") return
+
+        val cookies = response.headers.values("Set-Cookie")
+        if (cookies.isEmpty()) return
+
+        kotlinx.coroutines.withContext(
+            kotlinx.coroutines.Dispatchers.Main
+        ) {
+            val manager = CookieManager.getInstance()
+            cookies.forEach { cookie ->
+                manager.setCookie(url, cookie)
+            }
+            manager.flush()
+        }
+    }
+
     private val headers = mapOf(
         "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
         "Referer" to "$mainUrl/"
@@ -273,7 +297,19 @@ class PusatFilm21 : MainAPI() {
     }
 
     override suspend fun load(url: String): LoadResponse {
-        val doc = app.get(url).document
+        val response = app.get(url, headers = sessionHeaders())
+        val doc = response.document
+
+        val finalUrl = response.url.lowercase()
+        val loginPage = listOf(
+            "/auth/login",
+            "/login",
+            "/masuk"
+        ).any { it in finalUrl }
+
+        if (!loginPage && !doc.title().contains("login", ignoreCase = true)) {
+            syncAuthCookies(response)
+        }
 
 
         val ogTitle = doc.selectFirst("meta[property=og:title]")
