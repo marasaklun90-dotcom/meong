@@ -9,7 +9,6 @@ include(
     "LayarAsia",
     "AnimeXin",
     "MovieBox",
-    "Kiblat21",
     )
 include(":PusatFilm21")
 include(":GFM")
