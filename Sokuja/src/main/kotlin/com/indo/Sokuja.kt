@@ -27,7 +27,6 @@ class Sokuja : MainAPI() {
 
     override val mainPage = mainPageOf(
         "$mainUrl/?page=" to "Update Terbaru",
-        "$mainUrl/anime/?order=update&page=" to "Anime Terbaru",
         "$mainUrl/anime/?status=completed&order=update&page=" to "Tamat (Completed)",
         "$mainUrl/anime/?type=movie&order=update&page=" to "Anime Movie"
     )
