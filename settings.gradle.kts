@@ -8,7 +8,6 @@ include(
     "BlurayUFR",
     "LayarAsia",
     "AnimeXin",
-    "MovieBox",
     )
 include(":PusatFilm21")
 include(":GFM")
