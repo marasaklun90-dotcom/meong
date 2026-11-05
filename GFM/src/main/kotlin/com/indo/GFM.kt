@@ -79,7 +79,6 @@ class GFM : MainAPI() {
         "$mainUrl/?shelf=drama-barat" to "Drama Barat",
         "$mainUrl/?shelf=drama-asia" to "Drama Asia",
         "$mainUrl/?shelf=film-asia" to "Film Asia",
-        "$mainUrl/?shelf=terbaru" to "Film Terbaru Berdasarkan Tahun"
     )
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
