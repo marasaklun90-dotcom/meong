@@ -49,6 +49,28 @@ class GFM : MainAPI() {
         }
     }
 
+    private suspend fun syncAuthCookies(response: com.lagradost.nicehttp.NiceResponse) {
+        val url = response.url
+        val host = try {
+            android.net.Uri.parse(url).host?.lowercase()
+        } catch (_: Exception) {
+            null
+        }
+
+        if (host != "gfymultimedx.online") return
+
+        val cookies = response.headers.values("Set-Cookie")
+        if (cookies.isEmpty()) return
+
+        withContext(Dispatchers.Main) {
+            val manager = CookieManager.getInstance()
+            cookies.forEach { value ->
+                manager.setCookie(url, value)
+            }
+            manager.flush()
+        }
+    }
+
     override val mainPage = mainPageOf(
         "$mainUrl/" to "Film Unggulan",
         "$mainUrl/?shelf=action" to "Film Action",
@@ -80,7 +102,7 @@ class GFM : MainAPI() {
     override suspend fun search(query: String): List<SearchResponse> {
         val encoded = java.net.URLEncoder.encode(query.trim(), "UTF-8")
         val url = "$mainUrl/cari?q=$encoded"
-        val doc = app.get(url, headers = headers).document
+        val doc = app.get(url, headers = getAuthHeaders()).document
         return doc.select("a.web-media-link, a[href*='/film/']").mapNotNull { toSearchResponse(it) }
     }
 
@@ -138,7 +160,8 @@ class GFM : MainAPI() {
 
     override suspend fun load(url: String): LoadResponse {
         val reqHeaders = getAuthHeaders()
-        val doc = app.get(url, headers = reqHeaders).document
+        val response = app.get(url, headers = reqHeaders)
+        val doc = response.document
 
         if (doc.select("form[data-traffic-verification]").isNotEmpty() ||
             doc.title().contains("Akun", ignoreCase = true) ||
@@ -146,6 +169,8 @@ class GFM : MainAPI() {
         ) {
             throw ErrorLoadingException("GFM sekarang mewajibkan login akun (Email OTP) oleh pemilik web untuk membuka film/episode.")
         }
+
+        syncAuthCookies(response)
 
         val rawTitle = doc.selectFirst("h1")?.text()?.trim()
             ?: doc.selectFirst("meta[property='og:title']")?.attr("content")?.trim()
@@ -370,6 +395,7 @@ class GFM : MainAPI() {
                     activity.runOnUiThread {
                         if (!completed) {
                             completed = true
+                            CookieManager.getInstance().flush()
                             dialog?.dismiss()
                             webView.destroy()
                         }
