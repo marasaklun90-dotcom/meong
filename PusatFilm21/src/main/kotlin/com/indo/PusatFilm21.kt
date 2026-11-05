@@ -142,7 +142,6 @@ class PusatFilm21 : MainAPI() {
 
             newMovieSearchResponse(title, "$mainUrl$href", type) {
                 this.posterUrl = poster.ifBlank { null }
-                posterQuality(a)?.let { this.quality = it }
             }
         }
     }
@@ -194,18 +193,114 @@ class PusatFilm21 : MainAPI() {
 
                 newMovieSearchResponse(title, "$mainUrl$href", type) {
                     this.posterUrl = poster.ifBlank { null }
-                posterQuality(a)?.let { this.quality = it }
                 }
             }
     }
+
+
+    private val listingAction =
+        "6042bc2c39a25ba91866155b430d64491c00a0d641"
+
+    private fun listingSource(category: String): Pair<String, String>? =
+        when (category) {
+            "Netflix Originals" -> "network" to "netflix"
+            "Film Indonesia" -> "movie" to "indonesia"
+            "Drama Korea" -> "series" to "south-korea"
+            "Film Baru Ditambahkan" -> "movie" to "latest"
+            "Serial TV Baru Ditambahkan" -> "series" to "release"
+            else -> null
+        }
 
     override suspend fun getMainPage(
         page: Int,
         request: MainPageRequest
     ): HomePageResponse {
-        val doc = app.get(mainUrl, headers = sessionHeaders()).document
-        val items = categoryItems(doc, request.name)
-        return newHomePageResponse(request.name, items)
+        if (request.name == "Sedang Trending") {
+            val doc = app.get(mainUrl, headers = sessionHeaders()).document
+            val items = if (page == 1) {
+                categoryItems(doc, request.name).take(15)
+            } else emptyList()
+            return newHomePageResponse(request.name, items)
+        }
+
+        val source = listingSource(request.name)
+            ?: return newHomePageResponse(request.name, emptyList())
+
+        val (type, filter) = source
+        val sourceJson = when (type) {
+            "network" -> """{"kind":"network","slug":"$filter"}"""
+            "movie" -> if (filter == "indonesia") {
+                """{"kind":"browse","type":"movie","sort":"latest","country":"indonesia"}"""
+            } else {
+                """{"kind":"browse","type":"movie","sort":"latest"}"""
+            }
+            else -> if (filter == "south-korea") {
+                """{"kind":"browse","type":"series","sort":"latest","country":"south-korea"}"""
+            } else {
+                """{"kind":"browse","type":"series","sort":"release"}"""
+            }
+        }
+
+        val path = when (request.name) {
+            "Netflix Originals" -> "/network/netflix"
+            "Film Indonesia" -> "/movie?sort=latest&country=indonesia"
+            "Drama Korea" -> "/series?sort=latest&country=south-korea"
+            "Film Baru Ditambahkan" -> "/movie?sort=latest"
+            else -> "/series?sort=release"
+        }
+
+        val payload = "[$sourceJson,$page]"
+        val response = app.post(
+            "$mainUrl$path",
+            headers = sessionHeaders() + mapOf(
+                "Next-Action" to listingAction,
+                "Accept" to "text/x-component",
+                "Content-Type" to "text/plain;charset=UTF-8",
+                "Origin" to mainUrl,
+                "Referer" to "$mainUrl$path"
+            ),
+            requestBody = payload.toRequestBody("text/plain; charset=UTF-8".toMediaType())
+        )
+
+        val resultLine = response.text.lineSequence()
+            .firstOrNull { it.startsWith("1:") }
+            ?: return newHomePageResponse(request.name, emptyList())
+
+        val result = org.json.JSONObject(resultLine.substring(2))
+        val array = result.optJSONArray("items")
+            ?: return newHomePageResponse(request.name, emptyList())
+
+        val items = (0 until array.length()).mapNotNull { index ->
+            val item = array.optJSONObject(index) ?: return@mapNotNull null
+            val slug = item.optString("slug")
+            val title = item.optString("title")
+            if (slug.isBlank() || title.isBlank()) return@mapNotNull null
+
+            val itemType = item.optString("type", type)
+            val kind = if (itemType == "series") "series" else "movie"
+            val tvType = if (kind == "series") TvType.TvSeries else TvType.Movie
+
+            val posterPath = item.optString("posterPath")
+            val poster = if (posterPath.startsWith("http")) {
+                posterPath
+            } else if (posterPath.startsWith("/")) {
+                "https://image.tmdb.org/t/p/w500$posterPath"
+            } else null
+
+            newMovieSearchResponse(
+                title,
+                "$mainUrl/$kind/$slug",
+                tvType
+            ) {
+                posterUrl = poster
+            }
+        }
+
+        return newHomePageResponse(
+            request.name,
+            items,
+            result.optBoolean("hasMore", false)
+        )
     }
 
     override suspend fun search(query: String): List<SearchResponse> {
