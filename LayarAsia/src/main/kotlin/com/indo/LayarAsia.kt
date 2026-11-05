@@ -35,7 +35,7 @@ class LayarAsia : MainAPI() {
         "$mainUrl/series/?country%5B%5D=china&status=&type=&order=update" to "Drachin",
         "$mainUrl/series/?type=movie&order=latest" to "Movie",
         "$mainUrl/series/?genre%5B%5D=varshow&order=update" to "Variety Show",
-        "$mainUrl/series/?status=&type=&order=update" to "Semua Series"
+        "$mainUrl/series/?genre%5B%5D=series-barat&order=update" to "Series Barat"
     )
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
@@ -57,7 +57,7 @@ class LayarAsia : MainAPI() {
 
         val doc = app.get(url, headers = headers).document
         val items = doc.select("article.bs, .listupd article, .film-item, article").mapNotNull { toSearchResponse(it) }
-        return newHomePageResponse(request.name, items)
+        return newHomePageResponse(request.name, items, items.isNotEmpty())
     }
 
     override suspend fun search(query: String): List<SearchResponse> {
