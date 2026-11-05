@@ -1,6 +1,8 @@
 package com.indo
 
 import android.app.AlertDialog
+import android.graphics.Color
+import android.view.WindowManager
 import android.content.Context
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -14,7 +16,7 @@ class PusatFilm21Plugin : Plugin() {
         registerMainAPI(PusatFilm21())
 
         openSettings = { ctx ->
-            AlertDialog.Builder(ctx)
+            val settingsDialog = AlertDialog.Builder(ctx)
                 .setTitle("Pengaturan PusatFilm21")
                 .setMessage(
                     "Status cookie: " +
@@ -25,7 +27,10 @@ class PusatFilm21Plugin : Plugin() {
                     "\\nLogin menggunakan akun Google melalui situs resmi PusatFilm21."
                 )
                 .setPositiveButton("Login Google") { _, _ ->
+                    val loginUrl = "https://new1.pusatfilm21info.com/auth/login"
                     val webView = WebView(ctx).apply {
+                        isFocusable = true
+                        isFocusableInTouchMode = true
                         settings.javaScriptEnabled = true
                         settings.domStorageEnabled = true
                         webViewClient = WebViewClient()
@@ -39,6 +44,7 @@ class PusatFilm21Plugin : Plugin() {
                     val loginDialog = AlertDialog.Builder(ctx)
                         .setTitle("Login PusatFilm21")
                         .setView(webView)
+                        .setNeutralButton("Kembali", null)
                         .setNegativeButton("Tutup", null)
                         .create()
 
@@ -47,11 +53,32 @@ class PusatFilm21Plugin : Plugin() {
                         webView.destroy()
                     }
 
-                    webView.loadUrl("https://new1.pusatfilm21info.com/auth/login")
                     loginDialog.show()
+                    loginDialog.getButton(AlertDialog.BUTTON_NEUTRAL)?.apply {
+                        setTextColor(Color.WHITE)
+                        setOnClickListener {
+                            if (webView.canGoBack()) webView.goBack()
+                            else webView.loadUrl(loginUrl)
+                        }
+                    }
+                    loginDialog.getButton(AlertDialog.BUTTON_NEGATIVE)
+                        ?.setTextColor(Color.WHITE)
+                    loginDialog.window?.clearFlags(
+                        WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM
+                    )
+                    loginDialog.window?.setSoftInputMode(
+                        WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE or
+                        WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN
+                    )
+                    webView.requestFocus()
+                    webView.loadUrl(loginUrl)
                 }
                 .setNegativeButton("Batal", null)
                 .show()
+            settingsDialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                ?.setTextColor(Color.WHITE)
+            settingsDialog.getButton(AlertDialog.BUTTON_NEGATIVE)
+                ?.setTextColor(Color.WHITE)
         }
     }
 }
