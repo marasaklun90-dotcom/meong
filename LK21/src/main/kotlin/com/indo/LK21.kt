@@ -28,13 +28,9 @@ class LK21 : MainAPI() {
 
     override val mainPage = mainPageOf(
         "$movieUrl/latest" to "Film Terbaru",
-        "$movieUrl/populer" to "Film Populer",
         "$movieUrl/top-movie-today" to "Top Movies / Box Office",
-        "$movieUrl/rating" to "Film Rating Tertinggi",
         "$seriesUrl/latest" to "Series Terbaru",
         "$seriesUrl/populer" to "Series Populer",
-        "$seriesUrl/series/ongoing" to "Series Ongoing",
-        "$seriesUrl/series/complete" to "Series Komplit",
         "$seriesUrl/series/asian" to "Drama Asia",
         "$seriesUrl/series/west" to "West Series"
     )
