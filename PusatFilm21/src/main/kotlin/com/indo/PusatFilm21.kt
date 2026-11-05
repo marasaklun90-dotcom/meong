@@ -36,6 +36,46 @@ class PusatFilm21 : MainAPI() {
         }
     }
 
+    private suspend fun syncAuthCookies(
+        response: com.lagradost.nicehttp.NiceResponse
+    ) {
+        val url = response.url
+        val host = runCatching {
+            android.net.Uri.parse(url).host?.lowercase()
+        }.getOrNull()
+
+        if (host != "new1.pusatfilm21info.com") return
+
+        val cookies = response.headers.values("Set-Cookie")
+        if (cookies.isEmpty()) return
+
+        val path = runCatching {
+            android.net.Uri.parse(url).path.orEmpty()
+        }.getOrDefault("")
+
+        if (
+            path.startsWith("/auth/") ||
+            path == "/login" ||
+            path == "/masuk"
+        ) return
+
+        val existingCookie = runCatching {
+            CookieManager.getInstance().getCookie(mainUrl)
+        }.getOrNull()
+
+        if (existingCookie.isNullOrBlank()) return
+
+        kotlinx.coroutines.withContext(
+            kotlinx.coroutines.Dispatchers.Main
+        ) {
+            val manager = CookieManager.getInstance()
+            cookies.forEach { cookie ->
+                manager.setCookie(url, cookie)
+            }
+            manager.flush()
+        }
+    }
+
     private val headers = mapOf(
         "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
         "Referer" to "$mainUrl/"
@@ -273,7 +313,19 @@ class PusatFilm21 : MainAPI() {
     }
 
     override suspend fun load(url: String): LoadResponse {
-        val doc = app.get(url).document
+        val response = app.get(url, headers = sessionHeaders())
+        val doc = response.document
+
+        val finalUrl = response.url.lowercase()
+        val loginPage = listOf(
+            "/auth/login",
+            "/login",
+            "/masuk"
+        ).any { it in finalUrl }
+
+        if (!loginPage && !doc.title().contains("login", ignoreCase = true)) {
+            syncAuthCookies(response)
+        }
 
 
         val ogTitle = doc.selectFirst("meta[property=og:title]")
@@ -327,34 +379,40 @@ class PusatFilm21 : MainAPI() {
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ): Boolean {
-        val pageText = app.get(data, headers = sessionHeaders()).text
+        val pageResponse = app.get(data, headers = sessionHeaders())
+        val pageText = pageResponse.text
+        if (!pageResponse.url.contains("/auth/login")) {
+            syncAuthCookies(pageResponse)
+        }
 
 
         // Server Action: ambil embed URL menggunakan sesi login WebView.
-        if (data.contains("/series/") && data.contains("/episode/")) {
+        if (data.contains("/movie/") || (data.contains("/series/") && data.contains("/episode/"))) {
             val gateText = pageText.replace("\\\"", "\"")
             val gate = Regex(
-                """"gate"\s*:\s*\{\s*"titleId"\s*:\s*(\d+)\s*,\s*"episodeId"\s*:\s*(\d+)"""
+                """"gate"\s*:\s*\{\s*"titleId"\s*:\s*(\d+)\s*,\s*"episodeId"\s*:\s*(null|\d+)"""
             ).find(gateText)
 
             if (gate != null) {
                 val titleId = gate.groupValues[1].toInt()
-                val episodeId = gate.groupValues[2].toInt()
+                val episodeId = gate.groupValues[2].toIntOrNull()
 
                 try {
                     val actionHeaders = sessionHeaders() + mapOf(
-                        "Next-Action" to "604a474fa2b11e5b2cabf2631d077a1da728794f0e",
+                        "Next-Action" to "60977a3bccda72e14e6fc0067caf3a61dc544b93f8",
                         "Accept" to "text/x-component",
                         "Content-Type" to "text/plain;charset=UTF-8",
                         "Origin" to mainUrl,
                         "Referer" to data
                     )
 
-                    val response = app.post(
+                    val actionResponse = app.post(
                         data,
                         headers = actionHeaders,
                         requestBody = "[$titleId,$episodeId]".toRequestBody("text/plain;charset=UTF-8".toMediaType())
-                    ).text
+                    )
+                    syncAuthCookies(actionResponse)
+                    val response = actionResponse.text
 
                     val normalized = response.replace("\\\"", "\"").replace("\\/", "/")
                     val embed = Regex(
