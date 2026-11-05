@@ -31,10 +31,7 @@ class PusatFilm21Plugin : Plugin() {
                         webViewClient = WebViewClient()
                     }
 
-                    CookieManager.getInstance().apply {
-                        setAcceptCookie(true)
-                        setAcceptThirdPartyCookies(webView, true)
-                    }
+                    CookieManager.getInstance().setAcceptCookie(true)
 
                     val loginDialog = AlertDialog.Builder(ctx)
                         .setTitle("Login PusatFilm21")
