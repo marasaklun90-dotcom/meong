@@ -42,17 +42,13 @@ class LayarAsia : MainAPI() {
         val base = request.data
         val url = if (page <= 1) {
             base
+        } else if (base.contains("/series/")) {
+            val path = base.substringBefore("?")
+            val query = base.substringAfter("?", "")
+                .replace("%5B%5D", "%5B0%5D", ignoreCase = true)
+            "$path?page=$page&$query"
         } else {
-            if (base.contains("/series/")) {
-                if (base.contains("?")) {
-                    val parts = base.split("?", limit = 2)
-                    "${parts[0].trimEnd('/')}/page/$page/?${parts[1]}"
-                } else {
-                    "${base.trimEnd('/')}/page/$page/"
-                }
-            } else {
-                "${base.trimEnd('/')}/page/$page/"
-            }
+            "${base.trimEnd('/')}/page/$page/"
         }
 
         val doc = app.get(url, headers = headers).document
