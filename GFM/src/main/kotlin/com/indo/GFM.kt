@@ -106,7 +106,10 @@ class GFM : MainAPI() {
     }
 
     private fun cleanTitle(raw: String): String {
-        return raw.replace(Regex("""^Poster\s*""", RegexOption.IGNORE_CASE), "")
+        return raw.replace(
+            Regex("""\s*[-–|]\s*gfymultimedx\s*$""", RegexOption.IGNORE_CASE),
+            ""
+        ).replace(Regex("""^Poster\s*""", RegexOption.IGNORE_CASE), "")
             .replace(Regex("""^[▶★\s0-9.]+"""), "")
             .replace(Regex("""(?:Film|Serial|Anime)$""", RegexOption.IGNORE_CASE), "")
             .trim()
