@@ -44,12 +44,51 @@ class GFMPlugin : Plugin() {
                         .setNegativeButton("Tutup", null)
                         .create()
 
+
+                    val gfmAutoHandler = android.os.Handler(
+                        android.os.Looper.getMainLooper()
+                    )
+                    var gfmRunning = true
+                    val gfmAutoTask = object : Runnable {
+                        override fun run() {
+                            if (!gfmRunning) return
+                            webView.evaluateJavascript(
+                                """
+                                (function() {
+                                  if (location.hostname !== 'gfymultimedx.online')
+                                    return;
+                                  var text = document.body?.innerText.toLowerCase() || '';
+                                  if (text.includes('verifikasi berhasil')) return;
+                                  var ready = text.includes('pemeriksaan siap');
+                                  var targets = ready
+                                    ? ['konfirmasi verifikasi']
+                                    : ['lanjutkan verifikasi keamanan'];
+                                  for (var b of document.querySelectorAll('button,a')) {
+                                    var label = (b.innerText || '').trim().toLowerCase();
+                                    if (targets.some(t => label.includes(t)) &&
+                                        !b.disabled && b.getClientRects().length) {
+                                      if (b.dataset.gfmClicked) return;
+                                      b.dataset.gfmClicked = '1';
+                                      b.click();
+                                      return;
+                                    }
+                                  }
+                                })();
+                                """.trimIndent(), null
+                            )
+                            gfmAutoHandler.postDelayed(this, 2000)
+                        }
+                    }
+
                     dialog.setOnDismissListener {
+                        gfmRunning = false
+                        gfmAutoHandler.removeCallbacks(gfmAutoTask)
                         CookieManager.getInstance().flush()
                         webView.destroy()
                     }
 
                     dialog.show()
+                    gfmAutoHandler.postDelayed(gfmAutoTask, 2000)
                     webView.isFocusable = true
                     webView.isFocusableInTouchMode = true
                     dialog.window?.clearFlags(
