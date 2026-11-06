@@ -21,8 +21,8 @@ class AnimeXin : MainAPI() {
     )
 
     override val mainPage = mainPageOf(
-        "$mainUrl/" to "Popular Today",
-        "$mainUrl/" to "Latest Release"
+        "$mainUrl/" to "Latest Release",
+        "$mainUrl/" to "Popular Today"
     )
 
     private fun parseItems(
