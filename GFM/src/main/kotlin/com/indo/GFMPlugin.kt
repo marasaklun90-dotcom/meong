@@ -59,7 +59,19 @@ webViewClient = object : WebViewClient() {
         val allowed = host == "gfymultimedx.online" ||
             host.endsWith(".gfymultimedx.online")
 
-        return !allowed
+        if (!allowed) return true
+
+        val path = uri.path.orEmpty().lowercase()
+        val query = uri.query.orEmpty().lowercase()
+
+        val adPatterns = listOf(
+            "/popunder", "/pop-up", "/popup",
+            "/advert", "/ads/", "/redirect-ad"
+        )
+
+        return adPatterns.any {
+            path.contains(it) || query.contains(it)
+        }
     }
 }
 
