@@ -21,7 +21,7 @@ import org.jsoup.nodes.Element
 
 class GFM : MainAPI() {
     override var mainUrl = "https://gfymultimedx.online"
-    override var name = "Login"
+    override var name = "GFM"
     override val hasMainPage = true
     override val loadLinksTimeoutMs: Long = 300_000L
 

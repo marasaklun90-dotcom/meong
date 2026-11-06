@@ -17,7 +17,7 @@ import org.json.JSONObject
 
 class PusatFilm21 : MainAPI() {
     override var mainUrl = "https://new1.pusatfilm21info.com"
-    override var name = "18+ Login"
+    override var name = "PusatFilm21"
     override var lang = "id"
     override val hasMainPage = true
     override val supportedTypes = setOf(TvType.Movie, TvType.TvSeries)
