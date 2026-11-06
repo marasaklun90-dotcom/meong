@@ -171,8 +171,11 @@ class GFM : MainAPI() {
 
         syncAuthCookies(response)
 
-        val rawTitle = doc.selectFirst("h1")?.text()?.trim()
-            ?: doc.selectFirst("meta[property='og:title']")?.attr("content")?.trim()
+        val rawTitle = doc.selectFirst("meta[property='og:title']")
+            ?.attr("content")?.trim()?.takeIf { it.isNotBlank() }
+            ?: doc.selectFirst("[data-web-title]")
+                ?.attr("data-web-title")?.trim()?.takeIf { it.isNotBlank() }
+            ?: doc.selectFirst("h1")?.text()?.trim()
             ?: "GFM"
         val title = cleanTitle(rawTitle)
 
