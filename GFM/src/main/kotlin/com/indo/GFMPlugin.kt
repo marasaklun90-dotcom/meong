@@ -32,7 +32,37 @@ class GFMPlugin : Plugin() {
                     val webView = WebView(ctx).apply {
                         settings.javaScriptEnabled = true
                         settings.domStorageEnabled = true
-                        webViewClient = WebViewClient()
+                        
+// Blokir popup iklan GFM
+settings.setSupportMultipleWindows(true)
+settings.javaScriptCanOpenWindowsAutomatically = false
+
+webChromeClient = object : android.webkit.WebChromeClient() {
+    override fun onCreateWindow(
+        view: WebView?,
+        isDialog: Boolean,
+        isUserGesture: Boolean,
+        resultMsg: android.os.Message?
+    ): Boolean = false
+}
+
+webViewClient = object : WebViewClient() {
+    override fun shouldOverrideUrlLoading(
+        view: WebView?,
+        request: android.webkit.WebResourceRequest?
+    ): Boolean {
+        if (request == null || !request.isForMainFrame)
+            return false
+
+        val uri = request.url
+        val host = uri.host?.lowercase().orEmpty()
+        val allowed = host == "gfymultimedx.online" ||
+            host.endsWith(".gfymultimedx.online")
+
+        return !allowed
+    }
+}
+
                     }
 
                     CookieManager.getInstance().setAcceptCookie(true)
