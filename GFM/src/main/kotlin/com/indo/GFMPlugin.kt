@@ -58,7 +58,22 @@ class GFMPlugin : Plugin() {
                                   if (location.hostname !== 'gfymultimedx.online')
                                     return;
                                   var text = document.body?.innerText.toLowerCase() || '';
-                                  if (text.includes('verifikasi berhasil')) return;
+                                  if (text.includes('verifikasi berhasil')) {
+                                    var links = document.querySelectorAll('a,button');
+                                    for (var link of links) {
+                                      var label = (link.innerText || link.textContent || '')
+                                        .trim().toLowerCase();
+                                      if (label.includes('kembali ke beranda') &&
+                                          link.getClientRects().length) {
+                                        if (!link.dataset.gfmClicked) {
+                                          link.dataset.gfmClicked = '1';
+                                          link.click();
+                                        }
+                                        return;
+                                      }
+                                    }
+                                    return;
+                                  }
                                   var ready = text.includes('pemeriksaan siap');
                                   var targets = ready
                                     ? ['konfirmasi verifikasi']
