@@ -40,8 +40,15 @@ class BlurayUFR : MainAPI() {
         }
 
         val doc = app.get(url, headers = headers).document
-        val items = doc.select("article.item-infinite, article.item").mapNotNull { toSearchResponse(it) }
-        return newHomePageResponse(request.name, items)
+        val latestCards = doc.select("article.item-infinite")
+        val cards = if (request.name == "Film Terbaru" && latestCards.isNotEmpty()) {
+            latestCards
+        } else {
+            doc.select("article.item-infinite, article.item")
+        }
+
+        val items = cards.mapNotNull { toSearchResponse(it) }
+        return newHomePageResponse(request.name, items, items.isNotEmpty())
     }
 
     override suspend fun search(query: String): List<SearchResponse> {
