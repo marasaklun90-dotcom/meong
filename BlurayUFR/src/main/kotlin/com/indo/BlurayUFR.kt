@@ -344,9 +344,7 @@ class BlurayUFR : MainAPI() {
                 }
                 val ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36"
                 val hdr = mapOf("User-Agent" to ua, "Referer" to "https://abyssplayer.com/")
-                val finalUrl = try {
-                    app.get(srcUrl, headers = hdr + ("Range" to "bytes=0-0")).url
-                } catch (_: Exception) { srcUrl }
+                val finalUrl = srcUrl
                 val link = newExtractorLink(
                     "Abyss",
                     "Abyss $type",
