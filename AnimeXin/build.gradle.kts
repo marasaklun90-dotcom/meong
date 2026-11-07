@@ -2,7 +2,7 @@ version = 2
 
 cloudstream {
     language = "id"
-    authors = listOf("ExtremeBoy")
+    authors = listOf("meong")
     status = 1
     tvTypes = listOf("Anime", "AnimeMovie")
     iconUrl = "https://www.google.com/s2/favicons?domain=https://animexin.dev&sz=%size%"

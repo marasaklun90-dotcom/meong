@@ -2,7 +2,7 @@ version = 5
 
 cloudstream {
     language = "id"
-    authors = listOf("ExtremeBoy")
+    authors = listOf("meong")
     status = 1
     tvTypes = listOf("AnimeMovie", "OVA", "Anime")
     iconUrl = "https://www.google.com/s2/favicons?domain=https://otakudesu.blog&sz=%size%"
