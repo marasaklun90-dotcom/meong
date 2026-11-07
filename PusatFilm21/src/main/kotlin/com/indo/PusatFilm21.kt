@@ -232,6 +232,26 @@ class PusatFilm21 : MainAPI() {
             return newHomePageResponse(request.name, items)
         }
 
+        if (page == 1) {
+            val homeDoc = app.get(
+                mainUrl,
+                headers = sessionHeaders()
+            ).document
+
+            val homeItems = categoryItems(
+                homeDoc,
+                request.name
+            )
+
+            if (homeItems.isNotEmpty()) {
+                return newHomePageResponse(
+                    request.name,
+                    homeItems,
+                    true
+                )
+            }
+        }
+
         val path = when (request.name) {
             "Netflix Originals" -> "/network/netflix"
             "Film Indonesia" -> "/movie?sort=latest&country=indonesia"
