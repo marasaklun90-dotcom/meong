@@ -1,0 +1,185 @@
+[
+    {
+        "iconUrl": "https://www.google.com/s2/favicons?domain=https://anichin.moe&sz=%size%",
+        "fileHash": "sha256-26aab0ea0f9532b660ee9f689f8a438c2ef9f4ef6dc3ad510e356167e6e4d003",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/marasaklun90-dotcom/meong",
+        "fileSize": 36302,
+        "status": 1,
+        "language": "id",
+        "authors": [
+            "meong"
+        ],
+        "tvTypes": [
+            "Anime",
+            "AnimeMovie"
+        ],
+        "version": 3,
+        "internalName": "Anichin",
+        "url": "https://raw.githubusercontent.com/marasaklun90-dotcom/meong/builds/Anichin.cs3",
+        "name": "Anichin"
+    },
+    {
+        "iconUrl": "https://www.google.com/s2/favicons?domain=https://animexin.dev&sz=%size%",
+        "fileHash": "sha256-079871c94f6ef76f9fe8e4067e47c5f8344ba52792269d8b69018caac9894db6",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/marasaklun90-dotcom/meong",
+        "fileSize": 27388,
+        "status": 1,
+        "language": "id",
+        "authors": [
+            "meong"
+        ],
+        "tvTypes": [
+            "Anime",
+            "AnimeMovie"
+        ],
+        "version": 2,
+        "internalName": "AnimeXin",
+        "url": "https://raw.githubusercontent.com/marasaklun90-dotcom/meong/builds/AnimeXin.cs3",
+        "name": "AnimeXin"
+    },
+    {
+        "iconUrl": "https://www.google.com/s2/favicons?domain=https://blurayufr.site&sz=%size%",
+        "fileHash": "sha256-71f3ddd2cb807a7d526a325f704e25870cc083721f35e3190e1f94b5c0815703",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/marasaklun90-dotcom/meong",
+        "fileSize": 28266,
+        "status": 1,
+        "language": "id",
+        "authors": [
+            "meong"
+        ],
+        "tvTypes": [
+            "Movie",
+            "TvSeries"
+        ],
+        "version": 7,
+        "internalName": "BlurayUFR",
+        "url": "https://raw.githubusercontent.com/marasaklun90-dotcom/meong/builds/BlurayUFR.cs3",
+        "name": "BlurayUFR"
+    },
+    {
+        "fileHash": "sha256-4064ca1b49353bb8cc1667bce36c1af28a1a4cdec2c63646217b03c90677072d",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/marasaklun90-dotcom/meong",
+        "fileSize": 39435,
+        "status": 1,
+        "language": "id",
+        "authors": [
+            "meong"
+        ],
+        "tvTypes": [
+            "Movie",
+            "TvSeries",
+            "Anime"
+        ],
+        "version": 10,
+        "internalName": "GFM",
+        "url": "https://raw.githubusercontent.com/marasaklun90-dotcom/meong/builds/GFM.cs3",
+        "name": "GFM"
+    },
+    {
+        "iconUrl": "https://www.google.com/s2/favicons?domain=https://server-1.layar.asia&sz=%size%",
+        "fileHash": "sha256-431082166071de5f6153146bfc300c42c04af5f89ab92ab202ced7d3bb64a980",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/marasaklun90-dotcom/meong",
+        "fileSize": 40090,
+        "status": 1,
+        "language": "id",
+        "authors": [
+            "meong"
+        ],
+        "tvTypes": [
+            "Movie",
+            "TvSeries",
+            "AsianDrama"
+        ],
+        "version": 4,
+        "internalName": "LayarAsia",
+        "url": "https://raw.githubusercontent.com/marasaklun90-dotcom/meong/builds/LayarAsia.cs3",
+        "name": "LayarAsia"
+    },
+    {
+        "iconUrl": "https://www.google.com/s2/favicons?domain=https://tv.nontondrama.vip&sz=%size%",
+        "fileHash": "sha256-53b78225be1d39dd69adf1ab9c0449155e43236f3442871c2630ad98bd0c95ac",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/marasaklun90-dotcom/meong",
+        "fileSize": 37579,
+        "status": 1,
+        "language": "id",
+        "authors": [
+            "meong"
+        ],
+        "tvTypes": [
+            "TvSeries",
+            "Movie"
+        ],
+        "version": 9,
+        "internalName": "LK21",
+        "url": "https://raw.githubusercontent.com/marasaklun90-dotcom/meong/builds/LK21.cs3",
+        "name": "LK21"
+    },
+    {
+        "iconUrl": "https://www.google.com/s2/favicons?domain=https://otakudesu.blog&sz=%size%",
+        "fileHash": "sha256-8840c5975e78060ab6eb38836cac8949579d0433cbb1970ff49210a7eb5d71c0",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/marasaklun90-dotcom/meong",
+        "fileSize": 42304,
+        "status": 1,
+        "language": "id",
+        "authors": [
+            "meong"
+        ],
+        "tvTypes": [
+            "AnimeMovie",
+            "OVA",
+            "Anime"
+        ],
+        "version": 5,
+        "internalName": "Otakudesu",
+        "url": "https://raw.githubusercontent.com/marasaklun90-dotcom/meong/builds/Otakudesu.cs3",
+        "name": "Otakudesu"
+    },
+    {
+        "iconUrl": "https://www.google.com/s2/favicons?domain=new1.pusatfilm21info.com&sz=%size%",
+        "fileHash": "sha256-1c2d7b01c3db23fa9b2fe63730194fd67e1c9db7d23daf0fa2098ab8734c84e5",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/marasaklun90-dotcom/meong",
+        "fileSize": 40364,
+        "status": 1,
+        "language": "id",
+        "authors": [
+            "meong"
+        ],
+        "tvTypes": [
+            "TvSeries",
+            "Movie"
+        ],
+        "version": 17,
+        "internalName": "PusatFilm21",
+        "url": "https://raw.githubusercontent.com/marasaklun90-dotcom/meong/builds/PusatFilm21.cs3",
+        "name": "PusatFilm21"
+    },
+    {
+        "iconUrl": "https://www.google.com/s2/favicons?domain=https://x6.sokuja.uk&sz=%size%",
+        "fileHash": "sha256-60217335a1e183f7d6d1e88e2e635381f92169e144a2652fe8f0aa828825cab8",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/marasaklun90-dotcom/meong",
+        "fileSize": 25176,
+        "status": 1,
+        "language": "id",
+        "authors": [
+            "meong"
+        ],
+        "tvTypes": [
+            "AnimeMovie",
+            "OVA",
+            "Anime"
+        ],
+        "version": 6,
+        "internalName": "Sokuja",
+        "url": "https://raw.githubusercontent.com/marasaklun90-dotcom/meong/builds/Sokuja.cs3",
+        "name": "Sokuja"
+    }
+]
