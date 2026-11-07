@@ -240,7 +240,28 @@ class PusatFilm21 : MainAPI() {
             "page=$page"
 
         val doc = app.get(url, headers = sessionHeaders()).document
-        val items = parseMovies(doc)
+        val items = doc.select(
+            "a.group[href^='/movie/'], a.group[href^='/series/']"
+        ).mapNotNull { a ->
+            val href = a.attr("href")
+            val title = a.selectFirst("h2")?.text()?.trim()
+                ?.let { cleanTitle(it) }
+                ?: return@mapNotNull null
+
+            val img = a.selectFirst("img")
+            val poster = img?.attr("src")
+                ?.ifBlank { img.attr("data-src") }
+
+            val type = if (href.startsWith("/series/")) {
+                TvType.TvSeries
+            } else {
+                TvType.Movie
+            }
+
+            newMovieSearchResponse(title, "$mainUrl$href", type) {
+                this.posterUrl = poster?.ifBlank { null }
+            }
+        }.distinctBy { it.url }
 
         return newHomePageResponse(
             request.name,
