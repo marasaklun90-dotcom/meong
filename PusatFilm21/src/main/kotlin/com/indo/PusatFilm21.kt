@@ -211,6 +211,7 @@ class PusatFilm21 : MainAPI() {
             else -> null
         }
 
+
     override suspend fun getMainPage(
         page: Int,
         request: MainPageRequest
@@ -223,83 +224,28 @@ class PusatFilm21 : MainAPI() {
             return newHomePageResponse(request.name, items)
         }
 
-        val source = listingSource(request.name)
-            ?: return newHomePageResponse(request.name, emptyList())
-
-        val (type, filter) = source
-        val sourceJson = when (type) {
-            "network" -> """{"kind":"network","slug":"$filter"}"""
-            "movie" -> if (filter == "indonesia") {
-                """{"kind":"browse","type":"movie","sort":"latest","country":"indonesia"}"""
-            } else {
-                """{"kind":"browse","type":"movie","sort":"latest"}"""
-            }
-            else -> if (filter == "south-korea") {
-                """{"kind":"browse","type":"series","sort":"latest","country":"south-korea"}"""
-            } else {
-                """{"kind":"browse","type":"series","sort":"release"}"""
-            }
-        }
-
         val path = when (request.name) {
             "Netflix Originals" -> "/network/netflix"
             "Film Indonesia" -> "/movie?sort=latest&country=indonesia"
             "Drama Korea" -> "/series?sort=latest&country=south-korea"
             "Film Baru Ditambahkan" -> "/movie?sort=latest"
-            else -> "/series?sort=release"
+            "Serial TV Baru Ditambahkan" -> "/series?sort=release"
+            else -> return newHomePageResponse(
+                request.name, emptyList()
+            )
         }
 
-        val payload = "[$sourceJson,$page]"
-        val response = app.post(
-            "$mainUrl$path",
-            headers = sessionHeaders() + mapOf(
-                "Next-Action" to listingAction,
-                "Accept" to "text/x-component",
-                "Content-Type" to "text/plain;charset=UTF-8",
-                "Origin" to mainUrl,
-                "Referer" to "$mainUrl$path"
-            ),
-            requestBody = payload.toRequestBody("text/plain; charset=UTF-8".toMediaType())
-        )
+        val url = "$mainUrl$path" +
+            (if (path.contains("?")) "&" else "?") +
+            "page=$page"
 
-        val resultLine = response.text.lineSequence()
-            .firstOrNull { it.startsWith("1:") }
-            ?: return newHomePageResponse(request.name, emptyList())
-
-        val result = org.json.JSONObject(resultLine.substring(2))
-        val array = result.optJSONArray("items")
-            ?: return newHomePageResponse(request.name, emptyList())
-
-        val items = (0 until array.length()).mapNotNull { index ->
-            val item = array.optJSONObject(index) ?: return@mapNotNull null
-            val slug = item.optString("slug")
-            val title = item.optString("title")
-            if (slug.isBlank() || title.isBlank()) return@mapNotNull null
-
-            val itemType = item.optString("type", type)
-            val kind = if (itemType == "series") "series" else "movie"
-            val tvType = if (kind == "series") TvType.TvSeries else TvType.Movie
-
-            val posterPath = item.optString("posterPath")
-            val poster = if (posterPath.startsWith("http")) {
-                posterPath
-            } else if (posterPath.startsWith("/")) {
-                "https://image.tmdb.org/t/p/w500$posterPath"
-            } else null
-
-            newMovieSearchResponse(
-                title,
-                "$mainUrl/$kind/$slug",
-                tvType
-            ) {
-                posterUrl = poster
-            }
-        }
+        val doc = app.get(url, headers = sessionHeaders()).document
+        val items = parseMovies(doc)
 
         return newHomePageResponse(
             request.name,
             items,
-            result.optBoolean("hasMore", false)
+            items.isNotEmpty()
         )
     }
 
