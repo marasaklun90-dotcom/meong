@@ -232,6 +232,87 @@ class PusatFilm21 : MainAPI() {
             return newHomePageResponse(request.name, items)
         }
 
+        // Filter negara menggunakan Server Action asli PusatFilm21.
+        if (request.name == "Film Indonesia" || request.name == "Drama Korea") {
+            val isMovie = request.name == "Film Indonesia"
+            val contentType = if (isMovie) "movie" else "series"
+            val country = if (isMovie) "indonesia" else "south-korea"
+            val endpoint = "$mainUrl/$contentType"
+
+            val payload = JSONArray()
+                .put(
+                    JSONObject()
+                        .put("kind", "browse")
+                        .put("type", contentType)
+                        .put("sort", "latest")
+                        .put("country", country)
+                )
+                .put(page.coerceAtLeast(1))
+                .toString()
+
+            val actionHeaders = sessionHeaders() + mapOf(
+                "Next-Action" to "60af38bf64b9450e7f97edaa522beb859519d471e7",
+                "Accept" to "text/x-component",
+                "Content-Type" to "text/plain;charset=UTF-8",
+                "Origin" to mainUrl,
+                "Referer" to endpoint
+            )
+
+            val response = app.post(
+                endpoint,
+                headers = actionHeaders,
+                requestBody = payload.toRequestBody(
+                    "text/plain;charset=UTF-8".toMediaType()
+                )
+            ).text
+
+            val dataLine = response.lineSequence()
+                .firstOrNull { it.startsWith("1:") }
+                ?.removePrefix("1:")
+                ?: return newHomePageResponse(request.name, emptyList())
+
+            val result = JSONObject(dataLine)
+            val data = result.optJSONArray("items") ?: JSONArray()
+
+            val items = (0 until data.length()).mapNotNull { index ->
+                val item = data.optJSONObject(index) ?: return@mapNotNull null
+                val slug = item.optString("slug")
+                val title = item.optString("title")
+                val typeName = item.optString("type", contentType)
+
+                if (slug.isBlank() || title.isBlank()) return@mapNotNull null
+
+                val type = if (typeName == "series") {
+                    TvType.TvSeries
+                } else {
+                    TvType.Movie
+                }
+
+                val posterPath = item.optString("posterPath")
+                val poster = if (posterPath.startsWith("http")) {
+                    posterPath
+                } else if (posterPath.startsWith("/")) {
+                    "https://image.tmdb.org/t/p/w500$posterPath"
+                } else {
+                    ""
+                }
+
+                newMovieSearchResponse(
+                    title,
+                    "$mainUrl/$typeName/$slug",
+                    type
+                ) {
+                    this.posterUrl = poster.ifBlank { null }
+                }
+            }.distinctBy { it.url }
+
+            return newHomePageResponse(
+                request.name,
+                items,
+                result.optBoolean("hasMore", false) && items.isNotEmpty()
+            )
+        }
+
         if (page == 1) {
             val homeDoc = app.get(
                 mainUrl,
@@ -247,9 +328,22 @@ class PusatFilm21 : MainAPI() {
                 return newHomePageResponse(
                     request.name,
                     homeItems,
-                    true
+                    request.name !in listOf(
+                        "Film Indonesia",
+                        "Drama Korea"
+                    )
                 )
             }
+        }
+
+        if (
+            page > 1 &&
+            request.name in listOf("Film Indonesia", "Drama Korea")
+        ) {
+            return newHomePageResponse(
+                request.name,
+                emptyList()
+            )
         }
 
         val path = when (request.name) {
