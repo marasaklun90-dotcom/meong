@@ -212,15 +212,23 @@ class PusatFilm21 : MainAPI() {
         }
 
 
+
     override suspend fun getMainPage(
         page: Int,
         request: MainPageRequest
     ): HomePageResponse {
         if (request.name == "Sedang Trending") {
-            val doc = app.get(mainUrl, headers = sessionHeaders()).document
+            val doc = app.get(
+                mainUrl,
+                headers = sessionHeaders()
+            ).document
+
             val items = if (page == 1) {
                 categoryItems(doc, request.name).take(15)
-            } else emptyList()
+            } else {
+                emptyList()
+            }
+
             return newHomePageResponse(request.name, items)
         }
 
@@ -231,42 +239,75 @@ class PusatFilm21 : MainAPI() {
             "Film Baru Ditambahkan" -> "/movie?sort=latest"
             "Serial TV Baru Ditambahkan" -> "/series?sort=release"
             else -> return newHomePageResponse(
-                request.name, emptyList()
+                request.name,
+                emptyList()
             )
         }
 
-        val url = "$mainUrl$path" +
-            (if (path.contains("?")) "&" else "?") +
-            "page=$page"
+        val basePath = path.substringBefore("?")
+        val query = path.substringAfter("?", "")
 
-        val doc = app.get(url, headers = sessionHeaders()).document
+        val pagePath = if (page <= 1) {
+            basePath
+        } else {
+            "$basePath/page/$page"
+        }
+
+        val url = "$mainUrl$pagePath" +
+            if (query.isNotBlank()) "?$query" else ""
+
+        val doc = app.get(
+            url,
+            headers = sessionHeaders()
+        ).document
+
         val items = doc.select(
-            "a.group[href^='/movie/'], a.group[href^='/series/']"
+            "a.group[href^='/movie/'], " +
+            "a.group[href^='/series/'], " +
+            "a.group[href^='/tv/']"
         ).mapNotNull { a ->
             val href = a.attr("href")
-            val title = a.selectFirst("h2")?.text()?.trim()
+
+            val title = a.selectFirst("h2")
+                ?.text()
+                ?.trim()
                 ?.let { cleanTitle(it) }
+                ?.takeIf { it.isNotBlank() }
                 ?: return@mapNotNull null
 
             val img = a.selectFirst("img")
             val poster = img?.attr("src")
                 ?.ifBlank { img.attr("data-src") }
 
-            val type = if (href.startsWith("/series/")) {
+            val type = if (
+                href.startsWith("/series/") ||
+                href.startsWith("/tv/")
+            ) {
                 TvType.TvSeries
             } else {
                 TvType.Movie
             }
 
-            newMovieSearchResponse(title, "$mainUrl$href", type) {
+            newMovieSearchResponse(
+                title,
+                "$mainUrl$href",
+                type
+            ) {
                 this.posterUrl = poster?.ifBlank { null }
             }
         }.distinctBy { it.url }
 
+        val hasNext = doc.select("a[href]").any { a ->
+            a.text().contains(
+                "Muat lebih banyak",
+                ignoreCase = true
+            ) && a.attr("href").contains("/page/")
+        }
+
         return newHomePageResponse(
             request.name,
             items,
-            items.isNotEmpty()
+            hasNext && items.isNotEmpty()
         )
     }
 
